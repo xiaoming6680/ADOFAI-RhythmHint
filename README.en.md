@@ -20,6 +20,9 @@ In A Dance of Fire and Ice any key counts, but once the rhythm gets messy, watch
 
 So I made this mod: it turns every level's tiles into falling notes, so you can see what to press next, just like in a rhythm game. It only shows hints and never touches judgment, so your results work exactly as before.
 
+> [!WARNING]
+> Not touching judgment doesn't make it welcome everywhere: some communities and competitions treat key hints like this as cheating. Use it only for solo practice. Keep it off in multiplayer (e.g. Together, which blocks it outright), leaderboards and clear verification (e.g. TUF), and competitions. If you post a video or a score, say you had it on, and don't rename it to get past detection. Each place's own rules come first; when in doubt, leave it off.
+
 ## What it looks like
 
 <img src="docs/images/anatomy.webp" alt="Parts of the screen" width="880">

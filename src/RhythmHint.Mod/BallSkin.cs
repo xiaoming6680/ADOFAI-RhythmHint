@@ -67,11 +67,16 @@ internal static class BallSkin
     /// 判定圈：深色底、灰色外圈和内圈。按下对应的键时（lit）底色变亮、外圈变白；
     /// 命中时（flash 从 1 降到 0）整圈染上音符颜色，外圈向外扩散。
     /// </summary>
-    public static void Judge(Vector2 center, float r, float rim, bool lit, float flash, Color flashColor)
+    /// <param name="opacity">
+    /// 圈里底色的不透明度：下落面板的判定圈跟着「面板底色不透明度」（2026-11-22 用户：面板放中间时判定区挡住结算画面的准度）；
+    /// 按下时的点亮、圈的边至少留一点，调到全透明也看得出是哪个键。
+    /// </param>
+    public static void Judge(Vector2 center, float r, float rim, bool lit, float flash, Color flashColor, float opacity = 1)
     {
-        Painter.Circle(center, r, lit ? JudgeFillLit : JudgeFill);
-        Painter.Ring(center, r, lit ? Color.white : JudgeRim, rim);
-        Painter.Ring(center, r * 36f / 46f, JudgeInnerRim, rim * 0.75f);
+        Painter.Circle(center, r, (lit ? JudgeFillLit : JudgeFill).WithAlpha(lit ? Mathf.Max(opacity, 0.7f) : opacity));
+        var edge = Mathf.Max(opacity, 0.5f);
+        Painter.Ring(center, r, (lit ? Color.white : JudgeRim).WithAlpha(lit ? 1 : edge), rim);
+        Painter.Ring(center, r * 36f / 46f, JudgeInnerRim.WithAlpha(edge), rim * 0.75f);
         if (flash > 0)
         {
             Painter.Circle(center, r, flashColor.WithAlpha(0.55f * flash));

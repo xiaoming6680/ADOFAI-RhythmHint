@@ -6,6 +6,16 @@ What changed in each version, newest first.
 
 ## Unreleased
 
+- New 6K (S D F J K L) and 8K (A S D F J K L ;), experimental. By default the key count is chosen from the estimated difficulty: P tiers stay 4K, 6K from G1, 8K from U6; a custom fingering in use is shown with its own key count. Under F8 → Fingering you can turn the automatic choice off and pick 4K / 6K / 8K, or change the tiers where 6K and 8K start; set the keys for each key count under F8 → Appearance → Key boxes
+- 6K and 8K have a layout of their own instead of copying 4K: slow notes on the right index finger, medium ones alternating the index fingers; fast runs are split between both hands, each rolling from the outside in to the index finger, two fingers per hand for three or four notes and the whole hand for longer runs (L K J S D F in 6K, ; L K J A S D F in 8K); chords stay on one hand when it has enough fingers; where a finger would have to press again before it could rest (such as the same key right after a double), another rested finger takes the note. 4K fingering is unchanged, note for note
+- 6K and 8K custom fingerings now work: a 4K fingering is used on the middle four keys in 6K and 8K; in the editor, 6K and 8K key names, unsaved drafts and history are kept apart from 4K, and the suggested file name ends with 6K or 8K so it doesn't overwrite the 4K fingering of the same song
+- In 6K and 8K the falling panel uses slightly narrower lanes, 336 px wide for 6K and 384 px for 8K (1080p, scale 1); the game view makes room for it
+- The falling panel can sit in the middle of the screen (F8 → Appearance → Position); it is then drawn over the game view and the BPM box moves to the left
+- Panel background opacity now also applies to the key boxes and judgment circles, so a centered panel no longer hides the accuracy on the results screen when made transparent; pressed keys, outlines and key names stay readable
+- Changing the key count or the panel position, or turning the falling panel on or off, now animates smoothly instead of jumping; the panel no longer stutters the first time it slides in with 6K or 8K
+- F8 → Appearance → Key boxes now notes that it only sets the keys for each key count; the key count used in game is set on the Fingering page
+- The fingering editor shows the key count of the level in the File panel on the left; levels opened from the game can switch between 4K, 6K and 8K there, each saved as its own file with unfinished edits kept
+- The fingering editor's scrollbars are now slim and rounded instead of the system's grey bars with arrows
 - The mirror site gh-proxy.com stopped working; auto-update now uses edgeone.gh-proxy.org instead (ghfast.top and ghproxy.net are unchanged)
 
 ## 1.3.5 · 2026-11-20

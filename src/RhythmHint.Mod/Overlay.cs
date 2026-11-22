@@ -239,6 +239,38 @@ internal sealed class Overlay : MonoBehaviour
             Main.Mod.Logger.Warning($"设置窗口预先准备失败，打开时再读：{ex.Message}");
             Main.Mod.Logger.LogException(ex);
         }
+
+        WarmPlanner();
+    }
+
+    /// <summary>
+    /// 6K、8K 的排键代码第一次跑时要先编译（2026-11-22 用户：第一次用 6K、8K 时进场会卡一下）：游戏启动时拿一小段谱
+    /// （慢、中速、快连打、多押）各排一遍。出错只记日志，进关卡时照常排。
+    /// </summary>
+    private static void WarmPlanner()
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            var tiles = new List<TileHit>();
+            var t = 1.0;
+            foreach (var gap in new[] { 0.3, 0.3, 0.1, 0.1, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.3, 0.02, 0.02, 0.3 })
+            {
+                t += gap;
+                tiles.Add(new TileHit(tiles.Count + 1, t, Angle: gap < 0.03 ? 15 : 180));
+            }
+
+            foreach (var keys in KeyLayout.Modes)
+            {
+                NotePlanner.Plan(tiles, new FingeringOptions { Keys = keys });
+            }
+
+            Main.Mod.Logger.Log($"排键：先跑一遍 4、6、8 键（{watch.ElapsedMilliseconds} 毫秒）");
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            Main.Mod.Logger.Warning($"排键预热失败，进关卡时照常排：{ex.Message}");
+        }
     }
 
     /// <summary>设置窗口的快捷键（默认 F8）。按键名在设置里改，写错了就当没有快捷键。</summary>
@@ -331,7 +363,8 @@ internal sealed class Overlay : MonoBehaviour
         // 面板滑出时一起放大回全屏，完全收起时正好和原样重合，这时才改回覆盖模式；中途不切换，否则会先跳一下再动。
         // 离开关卡后面板还在滑出时也继续跟着，滑完为止
         _uiFollowing = levelShown || (_uiFollowing && Frame.Presence > 0);
-        _viewport.Apply(Frame.Presence, settings, _uiFollowing);
+        PanelMotion.Update(settings, Frame.Keys, Frame.Presence > 0);
+        _viewport.Apply(Frame.Presence, settings, _uiFollowing, Frame.Keys);
         ReportScreen(pausedHide, levelShown, level, preview, reason);
         _keys.Read(settings, Frame);
     }
@@ -410,13 +443,35 @@ internal sealed class Overlay : MonoBehaviour
         var tempo = BeatGrid.MusicalTempo(speeds, crotchet);
         var beats = InferBeats(hits, speeds, crotchet, tempo, level.Floors[0].entryTime, end + 2);
         var settings = Main.Settings;
-        var auto = NotePlanner.Plan(hits, settings.ToFingering());
+
+        // 先估难度（只看这一关的砖块，按关卡设定的音高换算成实际播放的时间，不算练习时临时调的速度：TUF 按原速评级），
+        // 再定几键（自动选键数按它），最后按这个键数排键、套专属手序（用上的手序是 4、6、8 键时自动模式听它的）
+        var data = GameReader.LevelData();
+        var pitch = data != null && data.pitch > 0 ? data.pitch / 100.0 : 1;
+        var tier = EstimateTier(hits, pitch);
+        var keyChoice = settings.KeyCountFor(tier);
+        var plans = new Dictionary<int, List<PlannedNote>>();
+        List<PlannedNote> AutoFor(int keys)
+        {
+            if (!plans.TryGetValue(keys, out var notes))
+            {
+                notes = NotePlanner.Plan(hits, settings.ToFingering(keys));
+                plans[keys] = notes;
+            }
+
+            return notes;
+        }
+
         var info = GameReader.ReadInfo(level);
         var chosen = hits.Count > 0
-            ? _fingerings.Choose(hits, auto, settings, info)
-            : new FingeringResult(auto, new List<bool>(), string.Empty, null, Message.Empty, Message.Empty);
+            ? _fingerings.Choose(hits, AutoFor, settings, info, keyChoice)
+            : new FingeringResult(AutoFor(keyChoice.Keys), new List<bool>(), string.Empty, null, Message.Empty, Message.Empty)
+            {
+                KeyChoice = keyChoice,
+                Keys = keyChoice.Keys,
+            };
         var bpm = tempo.ConvertAll(t => (t.Time, 60 / t.SecondsPerBeat));
-        return new LevelSnapshot(hits, chosen, info, beats, bpm);
+        return new LevelSnapshot(hits, chosen, info, beats, bpm, tier);
     }
 
     /// <summary>
@@ -505,14 +560,10 @@ internal sealed class Overlay : MonoBehaviour
         var info = snapshot.Info;
         var chosen = snapshot.Fingering;
         var notes = chosen.Notes;
-        Frame.Load(notes, snapshot.Beats, end);
+        Frame.Load(notes, snapshot.Beats, end, chosen.Keys);
         Frame.Caption = Message.Empty;
         _snapshot = hits.Count > 0 ? snapshot : null;
-
-        // 难度估算：只看这一关的砖块。按关卡设定的音高换算成实际播放的时间，不算练习时临时调的速度（TUF 按原速评级）
-        var data = GameReader.LevelData();
-        var pitch = data != null && data.pitch > 0 ? data.pitch / 100.0 : 1;
-        Frame.DifficultyTier = EstimateTier(hits, pitch);
+        Frame.DifficultyTier = snapshot.Tier;
 
         // 对不上、差别太大：开局在面板上提醒一下（同一首歌、同一个结果只提醒一次，重开不再提醒）
         var captionKey = $"{info.Artist}|{info.Song}|{chosen.UsedFile}|{chosen.Caption.Source}";
@@ -523,8 +574,9 @@ internal sealed class Overlay : MonoBehaviour
             _captionShownFor = captionKey;
         }
 
-        var chords = new int[Lanes.Count + 1]; // 按几个键：双押、三押、四押各几个
-        var laneUse = new int[Lanes.Count];
+        var keys = chosen.Keys;
+        var chords = new int[keys + 1]; // 按几个键：双押、三押、四押及以上各几个
+        var laneUse = new int[keys];
         foreach (var n in notes)
         {
             chords[n.Lanes.Count]++;
@@ -534,12 +586,28 @@ internal sealed class Overlay : MonoBehaviour
             }
         }
 
+        var many = 0;
+        for (var k = 4; k <= keys; k++)
+        {
+            many += chords[k];
+        }
+
         var byAngle = hits.Exists(h => !double.IsNaN(h.Angle));
-        _levelStatus = Lang.M("本关共 {0} 次按键，生成 {1} 个提示（双押 {2}、三押 {3}、四押 {4} 个，{5}），各轨道音符数 [{6}]{7}",
-            hits.Count, notes.Count, chords[2], chords[3], chords[4], byAngle ? Lang.M("按转角判断") : Lang.M("按时间判断"),
+        _levelStatus = Lang.M("本关按 {0} 键显示（{1}），共 {2} 次按键，生成 {3} 个提示（双押 {4}、三押 {5}、四押及以上 {6} 个，{7}），各轨道音符数 [{8}]{9}",
+            keys, KeyReason(chosen.KeyChoice, snapshot.Tier, chosen.UsedFile.Length > 0), hits.Count, notes.Count, chords[2], chords[3], many,
+            byAngle ? Lang.M("按转角判断") : Lang.M("按时间判断"),
             string.Join(", ", laneUse), hits.Count == 0 ? Lang.M("；{0}", GameReader.DescribeFloors(level)) : Message.Empty);
         Main.Mod.Logger.Log(_levelStatus.ToString());
     }
+
+    /// <summary>这一关为什么按这个键数显示（状态和日志里写）。</summary>
+    private static Message KeyReason(KeyCountChoice choice, int tier, bool usedFingering) => choice.Reason switch
+    {
+        KeyCountReason.Manual => Lang.M("设置里选的"),
+        _ when usedFingering => Lang.M("跟随专属手序"),
+        KeyCountReason.NoEstimate => Lang.M("估不出难度"),
+        _ => Lang.M("按估算难度 {0}", DifficultyTiers.Name(tier)),
+    };
 
     /// <summary>
     /// 这一帧画面状态的原因（只有值）：每帧比一次，变了才拼成消息和文字（原来每帧拼一次约 270 字节）。
@@ -641,6 +709,11 @@ internal sealed class Overlay : MonoBehaviour
         {
             _window.Prewarm(this); // 还没打开过：趁游戏载入时在后台把每一页排一遍，打开、换页时不卡
         }
+
+        if (!_failed && Event.current.type == EventType.Repaint && Frame.Presence <= 0 && Time.frameCount % 30 == 0)
+        {
+            LaneView.Prewarm(Main.Settings); // 面板没显示时把键名字形先排好，进场时不卡；隔一会儿看一次，没变化时直接返回
+        }
     }
 
     private void DrawOverlay()
@@ -653,27 +726,29 @@ internal sealed class Overlay : MonoBehaviour
         Black(new Rect(0, Screen.height - (float)freed.Bottom, Screen.width, (float)freed.Bottom));
 
         var settings = Main.Settings;
-        var layout = new OverlayLayout(settings);
+        var layout = new OverlayLayout(settings, Frame.Keys, PanelMotion.Pose);
         var p = Frame.Presence;
+        // 面板从它那一边滑入 / 滑出：左边往左、右边往右，在中间时往下（换位置的途中按份量混合）。
+        // 只剩 BPM 框（太鼓条关着）时它跟着面板那一列滑；设置里关掉下落面板时面板自己滑出去
+        var pose = layout.Pose;
+        Vector3 Away(float shown) => new((1 - shown) * (layout.PanelWidth + 8) * (pose.Right - pose.Left), (1 - shown) * layout.PanelHeight * 0.35f * pose.Center, 0);
+        var lanesShown = p * PanelMotion.LanesShown;
         Painter.Alpha = p;
         var saved = GUI.matrix;
         try
         {
             if (settings.ShowTaiko || settings.ShowBpm)
             {
-                // 太鼓条从它那一边（上或下）滑入 / 滑出；关掉太鼓条、只剩 BPM 框时跟着四轨面板从左或右滑
-                var away = (1 - p) * ((settings.ShowTaiko ? layout.TopHeight : layout.PanelWidth) + 8);
-                GUI.matrix = saved * (settings.ShowTaiko
-                    ? Matrix4x4.Translate(new Vector3(0, layout.TaikoBottom ? away : -away, 0))
-                    : Matrix4x4.Translate(new Vector3(layout.LanesRight ? away : -away, 0, 0)));
+                // 太鼓条从它那一边（上或下）滑入 / 滑出；关掉太鼓条、只剩 BPM 框时跟着下落面板滑
+                var away = (1 - p) * (layout.TopHeight + 8) * ((2 * pose.Bottom) - 1);
+                GUI.matrix = saved * Matrix4x4.Translate(settings.ShowTaiko ? new Vector3(0, away, 0) : Away(p));
                 TopBarView.Draw(Frame, layout, settings);
             }
 
-            if (settings.ShowLanes)
+            if (lanesShown > 0.001f)
             {
-                // 四轨面板从它那一边（左或右）滑入 / 滑出
-                var away = (1 - p) * (layout.PanelWidth + 8);
-                GUI.matrix = saved * Matrix4x4.Translate(new Vector3(layout.LanesRight ? away : -away, 0, 0));
+                Painter.Alpha = lanesShown;
+                GUI.matrix = saved * Matrix4x4.Translate(Away(lanesShown));
                 LaneView.Draw(Frame, layout, settings);
             }
         }

@@ -4,21 +4,25 @@ using UnityEngine;
 
 namespace RhythmHint;
 
-/// <summary>读设置里那四个键是否按下，用来点亮按键框（只是显示，不影响判定）。</summary>
+/// <summary>读设置里这个键数（4K、6K、8K 各一套）的键是否按下，用来点亮按键框（只是显示，不影响判定）。</summary>
 internal sealed class KeyInput
 {
     private KeyCode[] _keys = Array.Empty<KeyCode>();
     private string _parsedLabels = string.Empty;
+    private int _parsedKeys;
     private bool _broken;
 
     public void Read(Settings settings, OverlayFrame frame)
     {
-        if (settings.KeyLabels != _parsedLabels)
+        var labels = settings.KeyLabelsFor(frame.Keys);
+        if (labels != _parsedLabels || frame.Keys != _parsedKeys)
         {
-            _parsedLabels = settings.KeyLabels;
-            var keys = KeyBindings.Split(settings.KeyLabels);
+            _parsedLabels = labels;
+            _parsedKeys = frame.Keys;
+            var keys = KeyBindings.Split(labels, frame.Keys);
             frame.KeyLabels = Array.ConvertAll(keys, KeyBindings.Display);
             _keys = Array.ConvertAll(keys, KeyCodes.Parse);
+            Array.Clear(frame.KeysDown, 0, frame.KeysDown.Length);
         }
 
         if (!settings.LightKeysOnPress || _broken)

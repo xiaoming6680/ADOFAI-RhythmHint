@@ -54,8 +54,14 @@ public sealed class CustomFingering
     /// <summary>作者写的说明。</summary>
     public string Comment { get; set; } = string.Empty;
 
-    /// <summary>几键。现在只有四键；以后有六键、八键时，键数不同的手序不套用。</summary>
-    public int Keys { get; set; } = Lanes.Count;
+    /// <summary>文件里没写 keys 时当几键（第 1 版定下的，不随 Mod 支持的键数变）。</summary>
+    public const int DefaultKeys = 4;
+
+    /// <summary>
+    /// 几键（4、6、8，文件里可以是 1–16）。左边一半是左手，每只手从中间往外是食指、中指、无名指、小指（<see cref="KeyLayout"/>）。
+    /// 键数和这一关显示的不同时怎么套用见 <see cref="FingeringMatcher"/>。
+    /// </summary>
+    public int Keys { get; set; } = DefaultKeys;
 
     /// <summary>这份手序按哪只手为主手排的；玩家的惯用手不同时整体镜像。</summary>
     public bool LeftHanded { get; set; }
@@ -109,9 +115,10 @@ public sealed class CustomFingering
     }
 
     /// <summary>从当前关卡的砖块和排好的音符生成一份手序（导出给编辑器、测试用）。</summary>
-    public static CustomFingering From(IReadOnlyList<TileHit> hits, IReadOnlyList<PlannedNote> notes, bool leftHanded)
+    /// <param name="keys">音符是几键排的（检查轨道前要先定好，6K 的轨道 4、5 在 4 键文件里不合法）。</param>
+    public static CustomFingering From(IReadOnlyList<TileHit> hits, IReadOnlyList<PlannedNote> notes, bool leftHanded, int keys = DefaultKeys)
     {
-        var result = new CustomFingering { LeftHanded = leftHanded };
+        var result = new CustomFingering { LeftHanded = leftHanded, Keys = keys };
         result.Hits.AddRange(hits);
         foreach (var note in notes)
         {
@@ -148,6 +155,7 @@ public sealed class CustomFingering
     /// 去掉富文本标签和首尾空白；去掉控制字符（U+0000–U+001F、U+007F–U+009F）；\ / : * ? " &lt; &gt; | 换成 _；
     /// 去掉首尾空白和结尾的点，空了就叫 fingering；第一个点之前（不算结尾的空格）是 CON、PRN、AUX、NUL、COM1–9、LPT1–9 时前面加 _；
     /// 超过 80 个 UTF-16 字符截到 80，第 80 个是代理对的前一半时截到 79（不把 emoji 切成两半）。
+    /// 不是 4 键的在后面加「 6K」「 8K」（同一首歌的 4K、6K 手序默认名不撞，2026-11-22）。
     /// 复现（2026-11-19 评审 A 低12）：原来按 Path.GetInvalidFileNameChars（Mac 上只有 / 和 \0），CON 照用，截断会切开 emoji。
     /// </summary>
     public string SuggestedFileName()
@@ -182,7 +190,7 @@ public sealed class CustomFingering
             safe = safe.Substring(0, char.IsHighSurrogate(safe[MaxFileNameLength - 1]) ? MaxFileNameLength - 1 : MaxFileNameLength);
         }
 
-        return safe + ".json";
+        return safe + (Keys != DefaultKeys ? $" {Keys}K" : string.Empty) + ".json";
     }
 
     /// <summary>去掉游戏曲名里的富文本标签（&lt;color=…&gt; 之类）和首尾空白。</summary>
@@ -365,7 +373,7 @@ public sealed class CustomFingering
 
         var result = new CustomFingering
         {
-            Keys = root["keys"] == null ? Lanes.Count : Int(root["keys"], "keys"),
+            Keys = root["keys"] == null ? DefaultKeys : Int(root["keys"], "keys"),
             Song = Str(root, "song", MaxNameLength),
             Artist = Str(root, "artist", MaxNameLength),
             Charter = Str(root, "charter", MaxNameLength),

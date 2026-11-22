@@ -14,6 +14,7 @@
 //       （模型就是用这批谱拟合的，这里是训练集误差，偏乐观；真实误差看 difficulty-fit.py 的交叉验证。
 //        和 difficulty-fit.py 打印的「全部数据拟合」误差一致，说明 C# 的特征和模型实现没有偏差）
 //   dotnet run tools/Difficulty.cs -- level <关卡.adofai>            估算一关并列出特征
+//   dotnet run tools/Difficulty.cs -- keys <文件夹>                  按档位列出 6K、8K 会改动多少（定自动选键数的默认分界用）
 
 using System.Globalization;
 using Newtonsoft.Json;
@@ -36,6 +37,8 @@ switch (args[0])
         return ExportHits(args[1], args.Length > 2 ? args[2] : "hits.json");
     case "evaluate":
         return Evaluate(args[1]);
+    case "keys":
+        return Keys(args[1]);
     case "level":
         return Level(args[1]);
     default:
@@ -164,6 +167,86 @@ static int Evaluate(string folder)
     }
 
     return 0;
+}
+
+// 按档位看 6K、8K 和 4K 差多少：每关按实际播放速度排键，数「同一根手指隔不到 R 又按」占所有按键的比例（6K、8K 多出来的手指就是为了减少它），
+// 以及 6K、8K 改了几成音符的轨道。按真实 TUF 档位和估算档位各列一张表，每 5 档一行
+static int Keys(string folder)
+{
+    var rows = new List<(int Actual, int Estimated, double Quick4, double Quick6, double Quick8, double Changed6, double Changed8, bool Exact)>();
+    foreach (var (_, tier, _, level, _) in Load(folder))
+    {
+        if (level == null || DifficultyTiers.Parse(tier) == 0)
+        {
+            continue;
+        }
+
+        var rate = level.PlaybackRate;
+        var hits = level.Hits().ConvertAll(h => h with { Time = h.Time / rate, HoldSeconds = h.HoldSeconds / rate });
+        if (hits.Count < 2)
+        {
+            continue;
+        }
+
+        var options = new FingeringOptions();
+        var four = NotePlanner.Plan(hits, options);
+        var six = NotePlanner.Plan(hits, new FingeringOptions { Keys = 6 });
+        var eight = NotePlanner.Plan(hits, new FingeringOptions { Keys = 8 });
+        rows.Add((DifficultyTiers.Parse(tier), DifficultyEstimator.Estimate(level.Hits(), rate).Tier,
+            QuickRepeats(four, options.ResetWindow), QuickRepeats(six, options.ResetWindow), QuickRepeats(eight, options.ResetWindow),
+            Changed(four, six, KeyLayout.Six), Changed(four, eight, KeyLayout.Eight), level.Unsupported.Count == 0));
+    }
+
+    Console.WriteLine($"{rows.Count} 关（时间准的 {rows.Count(r => r.Exact)} 关）。同指 R 内 = 同一根手指隔不到 130 ms 又按，占全部按键；改动 = 轨道和 4K（放到中间四键）不一样的音符");
+    foreach (var (name, key) in new (string, Func<(int Actual, int Estimated, double, double, double, double, double, bool), int>)[] { ("真实档位", r => r.Actual), ("估算档位", r => r.Estimated) })
+    {
+        Console.WriteLine();
+        Console.WriteLine($"| {name} | 关数 | 4K 同指 R 内 | 6K 同指 R 内 | 8K 同指 R 内 | 6K 改动 | 8K 改动 | 6K 改动 ≥ 5% 的关 | 8K 改动 ≥ 5% 的关 |");
+        Console.WriteLine("|---|---|---|---|---|---|---|---|---|");
+        foreach (var group in rows.GroupBy(r => (key(r) - 1) / 5).OrderBy(g => g.Key))
+        {
+            var g = group.ToList();
+            var from = DifficultyTiers.Name((group.Key * 5) + 1);
+            var to = DifficultyTiers.Name((group.Key * 5) + 5);
+            Console.WriteLine($"| {from}–{to} | {g.Count} | {g.Average(r => r.Quick4):P1} | {g.Average(r => r.Quick6):P1} | {g.Average(r => r.Quick8):P1} | "
+                + $"{g.Average(r => r.Changed6):P1} | {g.Average(r => r.Changed8):P1} | {g.Count(r => r.Changed6 >= 0.05)} | {g.Count(r => r.Changed8 >= 0.05)} |");
+        }
+    }
+
+    return 0;
+}
+
+static double QuickRepeats(List<PlannedNote> notes, double resetWindow)
+{
+    var last = new Dictionary<int, double>();
+    int quick = 0, presses = 0;
+    foreach (var n in notes)
+    {
+        foreach (var lane in n.Lanes.Keys)
+        {
+            presses++;
+            if (last.TryGetValue(lane, out var before) && n.Time - before <= resetWindow)
+            {
+                quick++;
+            }
+
+            last[lane] = n.Time;
+        }
+    }
+
+    return presses == 0 ? 0 : (double)quick / presses;
+}
+
+static double Changed(List<PlannedNote> four, List<PlannedNote> many, KeyLayout layout)
+{
+    var changed = 0;
+    for (var i = 0; i < four.Count; i++)
+    {
+        var mapped = four[i].Lanes.Keys.Select(l => layout.FromLayout(KeyLayout.Four, l));
+        changed += mapped.SequenceEqual(many[i].Lanes.Keys) ? 0 : 1;
+    }
+
+    return four.Count == 0 ? 0 : (double)changed / four.Count;
 }
 
 static int Level(string path)

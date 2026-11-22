@@ -55,6 +55,12 @@ public sealed partial class Settings
     /// <summary>太鼓条（连同 BPM 框）放在屏幕下面（默认上面）。</summary>
     public bool TaikoAtBottom;
 
+    /// <summary>
+    /// 下落面板放在屏幕中间（2026-11-22 用户：多键的面板宽，想像下落式音游那样放中间）；开着时不看 <see cref="LanesOnRight"/>。
+    /// 面板盖在游戏画面上（画面不让位），太鼓条那一行的 BPM 框放在左边。1.3.x 不认这个字段，照 LanesOnRight 放。
+    /// </summary>
+    public bool LanesInCenter;
+
     /// <summary>整体缩放（在按屏幕高度 1080 换算的基础上再乘）。</summary>
     public float UiScale = 1f;
 
@@ -75,6 +81,12 @@ public sealed partial class Settings
     /// 按键框上显示它（长名字缩写），按下时点亮。设置窗口里可选预设，或用屏幕键盘自定义。
     /// </summary>
     public string KeyLabels = "D F J K";
+
+    /// <summary>6K 的六个按键框（每只手无名指、中指、食指），写法同 <see cref="KeyLabels"/>。2026-11-22 新加的字段：老版本读到会跳过。</summary>
+    public string KeyLabels6 = "S D F J K L";
+
+    /// <summary>8K 的八个按键框（再加上小指）。</summary>
+    public string KeyLabels8 = "A S D F J K L ;";
 
     public bool LightKeysOnPress = true;
 
@@ -153,6 +165,23 @@ public sealed partial class Settings
     /// </summary>
     public bool ChordsOnOtherHand;
 
+    /// <summary>
+    /// 按估算难度自动选几键（试验性，2026-11-22 用户：按谱面难度动态选择，所有人默认开，可以关掉）。关掉时用 <see cref="KeyCount"/>。
+    /// 用上的专属手序是 4、6、8 键时按它的键数显示（见 <see cref="KeyCountChooser"/>）。
+    /// </summary>
+    public bool AutoKeyCount = true;
+
+    /// <summary>不自动选时用几键：4、6、8（别的数读进来改成 4）。</summary>
+    public int KeyCount = 4;
+
+    /// <summary>
+    /// 自动选键数时，估算难度从这一档（1–60，P1…U20；61 是不用）起用 6K、8K。到 8K 的起点用 8K，到 6K 的起点用 6K，再低用 4K。
+    /// 默认 G1、U6：825 张 TUF 校准谱上 P 档 6K 一个音都不改，G 档起改 4–12% 的音；U6 起 8K 比 6K 同一根手指隔不到 R 又按的明显再少（docs/开发说明.md）。
+    /// </summary>
+    public int SixKeysFromTier = 21;
+
+    public int EightKeysFromTier = 46;
+
     // 以下不是 public 字段，不存进设置文件
 
     /// <summary>
@@ -180,6 +209,10 @@ public sealed partial class Settings
         // 短串最多音符数的下限是最少音符数
         [nameof(ReviewShortMaxNotes)] = (2, 16),
         [nameof(ReviewTimingToleranceMs)] = (0, 10),
+
+        // 自动选键数的两条分界（档位 1–60，61 是不用）；8K 的下限是 6K 的分界
+        [nameof(SixKeysFromTier)] = (1, KeyCountChooser.Never),
+        [nameof(EightKeysFromTier)] = (1, KeyCountChooser.Never),
     };
 
     // 排键相关设置上次的值和据此拼出的指纹（见 FingeringKey）
@@ -206,7 +239,41 @@ public sealed partial class Settings
         return true;
     }
 
-    public FingeringOptions ToFingering() => PlanInputs.Of(this).ToOptions();
+    /// <summary>排键参数；<paramref name="keys"/> 是这一关按几键显示（<see cref="KeyCountFor"/>）。</summary>
+    public FingeringOptions ToFingering(int keys = 4)
+    {
+        var options = PlanInputs.Of(this).ToOptions();
+        options.Keys = keys;
+        return options;
+    }
+
+    /// <summary>这一关按几键显示（专属手序的键数另算，见 <see cref="KeyCountChoice.FollowFile"/>）。<paramref name="tier"/> 是估算档位，0 表示估不出。</summary>
+    public KeyCountChoice KeyCountFor(int tier) => KeyCountChooser.Choose(AutoKeyCount, KeyCount, SixKeysFromTier, EightKeysFromTier, tier);
+
+    /// <summary>这个键数的按键框写法（4K 是 <see cref="KeyLabels"/>）。</summary>
+    public string KeyLabelsFor(int keys) => keys switch
+    {
+        6 => KeyLabels6,
+        8 => KeyLabels8,
+        _ => KeyLabels,
+    };
+
+    /// <summary>改这个键数的按键框。</summary>
+    public void SetKeyLabels(int keys, string labels)
+    {
+        switch (keys)
+        {
+            case 6:
+                KeyLabels6 = labels;
+                break;
+            case 8:
+                KeyLabels8 = labels;
+                break;
+            default:
+                KeyLabels = labels;
+                break;
+        }
+    }
 
     /// <summary>
     /// 排键相关设置的指纹，变了就要重排。关卡里、演示时每帧都要比：设置没变时返回上次那个字符串，不重新拼、不分配内存。
@@ -266,6 +333,22 @@ public sealed partial class Settings
         }
 
         KeyLabels = Fix(nameof(KeyLabels), KeyLabels, d.KeyLabels, changed);
+        KeyLabels6 = Fix(nameof(KeyLabels6), KeyLabels6, d.KeyLabels6, changed);
+        KeyLabels8 = Fix(nameof(KeyLabels8), KeyLabels8, d.KeyLabels8, changed);
+        if (!KeyLayout.IsMode(KeyCount))
+        {
+            KeyCount = d.KeyCount;
+            changed.Add(nameof(KeyCount));
+        }
+
+        SixKeysFromTier = Fix(nameof(SixKeysFromTier), SixKeysFromTier, changed);
+        EightKeysFromTier = Fix(nameof(EightKeysFromTier), EightKeysFromTier, changed);
+        if (SixKeysFromTier > EightKeysFromTier)
+        {
+            (SixKeysFromTier, EightKeysFromTier) = (EightKeysFromTier, SixKeysFromTier);
+            changed.Add(nameof(SixKeysFromTier) + "↔" + nameof(EightKeysFromTier));
+        }
+
         SettingsHotkey = Fix(nameof(SettingsHotkey), SettingsHotkey, d.SettingsHotkey, changed);
         Language = Fix(nameof(Language), Language, d.Language, changed);
         LatestVersion = Fix(nameof(LatestVersion), LatestVersion, d.LatestVersion, changed);
@@ -328,6 +411,7 @@ public sealed partial class Settings
         RoundNotes = d.RoundNotes;
         ShowTaiko = d.ShowTaiko;
         LanesOnRight = d.LanesOnRight;
+        LanesInCenter = d.LanesInCenter;
         TaikoAtBottom = d.TaikoAtBottom;
         ShowBpm = d.ShowBpm;
         ShowDifficulty = d.ShowDifficulty;
@@ -338,13 +422,17 @@ public sealed partial class Settings
         TaikoSpeed = d.TaikoSpeed;
         PanelOpacity = d.PanelOpacity;
         KeyLabels = d.KeyLabels;
+        KeyLabels6 = d.KeyLabels6;
+        KeyLabels8 = d.KeyLabels8;
         LightKeysOnPress = d.LightKeysOnPress;
     }
 
-    /// <summary>「排键」页的参数。惯用手、多押用手和专属手序开关不动：那是玩家自己的习惯，不是调出来的参数。</summary>
+    /// <summary>「排键」页的参数。惯用手、多押用手、用几键（自动还是手动选的哪种）和专属手序开关不动：那是玩家自己的习惯，不是调出来的参数。</summary>
     public void ResetFingering()
     {
         var d = new Settings();
+        SixKeysFromTier = d.SixKeysFromTier;
+        EightKeysFromTier = d.EightKeysFromTier;
         ChordAngleDeg = d.ChordAngleDeg;
         ResetWindowMs = d.ResetWindowMs;
         ChordFocusMs = d.ChordFocusMs;
@@ -375,12 +463,14 @@ public sealed partial class Settings
     private readonly record struct PlanInputs(
         int ChordAngleDeg, int ResetWindowMs, int ChordFocusMs, int JackWindowMs, bool UseRoll, bool OuterRoll, FingeringStyle Style,
         int ReviewShortMinGapMs, float ReviewShortMaxGapMs, int ReviewShortMinNotes, int ReviewShortMaxNotes, float ReviewTimingToleranceMs,
-        bool LeftHanded, bool ChordsOnOtherHand, bool UseCustomFingering)
+        bool LeftHanded, bool ChordsOnOtherHand, bool UseCustomFingering,
+        bool AutoKeyCount, int KeyCount, int SixKeysFromTier, int EightKeysFromTier)
     {
         public static PlanInputs Of(Settings s) => new(
             s.ChordAngleDeg, s.ResetWindowMs, s.ChordFocusMs, s.JackWindowMs, s.UseRoll, s.OuterRoll, s.Style,
             s.ReviewShortMinGapMs, s.ReviewShortMaxGapMs, s.ReviewShortMinNotes, s.ReviewShortMaxNotes, s.ReviewTimingToleranceMs,
-            s.LeftHanded, s.ChordsOnOtherHand, s.UseCustomFingering);
+            s.LeftHanded, s.ChordsOnOtherHand, s.UseCustomFingering,
+            s.AutoKeyCount, s.KeyCount, s.SixKeysFromTier, s.EightKeysFromTier);
 
         public FingeringOptions ToOptions() => new()
         {

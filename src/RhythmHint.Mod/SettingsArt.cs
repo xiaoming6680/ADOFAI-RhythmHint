@@ -437,17 +437,23 @@ internal static class SettingsArt
 
     /// <summary>
     /// 屏幕示意图（外观页「位置」）：按 1920×1080 的比例缩小画整个屏幕，四轨面板、太鼓条、BPM 框都照游戏里的样子，
-    /// 跟着设置走（左右、上下、显示哪些、音符样式、键位）；换边时滑过去，自适应画幅开着时游戏画面（两颗星球）让到剩下的区域。
+    /// 跟着设置走（左中右、上下、显示哪些、音符样式、键位）；换边时滑过去，自适应画幅开着时游戏画面（两颗星球）让到剩下的区域
+    /// （面板在中间时不让，盖在画面上）。
     /// </summary>
     public static void ScreenLayout(Rect r, Settings s)
     {
         var k = r.width / 1920f;
-        var panelW = 272 * k;
+        var keys = DemoPlayer.DemoKeys(s);
+        var panelW = Motion.Ease("art:scr:panelW", OverlayLayout.LaneBase(keys) * keys * k, 0.2f);
         var stripH = 128 * k;
         var top = s.ShowTaiko || s.ShowBpm;
         var lanesA = Motion.Ease("art:scr:lanes", s.ShowLanes ? 1 : 0, 0.18f);
         var stripA = Motion.Ease("art:scr:strip", top ? 1 : 0, 0.18f);
-        var lx = Motion.Ease("art:scr:lx", s.LanesOnRight ? r.width - panelW : 0, 0.28f);
+        var right = Motion.Ease("art:scr:right", !s.LanesInCenter && s.LanesOnRight ? 1 : 0, 0.28f);
+        var center = Motion.Ease("art:scr:center", s.LanesInCenter ? 1 : 0, 0.28f);
+        var leftW = 1 - right - center;
+        var lx = (right + (center / 2)) * (r.width - panelW);
+        var boxX = s.ShowTaiko ? right * (r.width - panelW) : lx; // 太鼓条开着时 BPM 框在面板那一侧，面板在中间时放左边
         var by = Motion.Ease("art:scr:by", s.TaikoAtBottom ? r.height - stripH : 0, 0.28f);
         var lanesTop = Motion.Ease("art:scr:lt", s.TaikoAtBottom || !top ? 0 : stripH, 0.28f);
         var lanesH = Motion.Ease("art:scr:lh", top ? r.height - stripH : r.height, 0.28f);
@@ -456,8 +462,8 @@ internal static class SettingsArt
         Fill(r, Scene, 8);
         Glow(new Rect(r.x + (r.width * 0.15f), r.y - (r.height * 0.2f), r.width * 0.85f, r.height * 1.3f), With(new Color(0.45f, 0.3f, 0.75f), 0.25f));
         var shrink = Motion.Ease("art:scr:g", s.ShrinkGameView ? 1 : 0, 0.2f);
-        var freeX = (s.LanesOnRight ? 0 : panelW * lanesA) * shrink;
-        var freeW = r.width - (panelW * lanesA * shrink);
+        var freeX = panelW * lanesA * leftW * shrink;
+        var freeW = r.width - (panelW * lanesA * (leftW + right) * shrink);
         var freeY = (s.TaikoAtBottom ? 0 : stripH * stripA) * shrink;
         var freeH = r.height - (stripH * stripA * shrink);
         var planets = new Vector2(r.x + freeX + (freeW / 2), r.y + freeY + (freeH / 2));
@@ -477,14 +483,14 @@ internal static class SettingsArt
                     if (s.ShowTaiko)
                     {
                         Fill(new Rect(0, by, r.width, stripH), Painter.PanelColor);
-                        var trackX = s.ShowBpm && lx < (r.width - panelW) / 2 ? lx + panelW : 0;
+                        var trackX = s.ShowBpm ? panelW * (1 - (boxX / Mathf.Max(1, r.width - panelW))) : 0;
                         var trackW = s.ShowBpm ? r.width - panelW : r.width;
                         TaikoTrack(new Rect(trackX, by, trackW, stripH), k, 650 * k, s.ShowChordCount);
                     }
 
                     if (s.ShowBpm)
                     {
-                        BpmBox(new Rect(lx, by, panelW, stripH), k);
+                        BpmBox(new Rect(boxX, by, panelW, stripH), k);
                     }
                 }
 

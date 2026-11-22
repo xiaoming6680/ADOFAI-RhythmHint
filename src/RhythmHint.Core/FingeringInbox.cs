@@ -112,19 +112,19 @@ public static class FingeringInbox
     }
 
     /// <summary>
-    /// 存进 <paramref name="folder"/> 用哪个文件名：<paramref name="name"/> 没人用、或用着的是同一关的手序（认得同一份谱面指纹，玩家重新保存）就用它；
-    /// 用着的是另一首谱的（同一首歌不同谱师、别人分享的）或读不出来的，依次试「名字 (2).json」「名字 (3).json」……，不覆盖别人的手序。
+    /// 存进 <paramref name="folder"/> 用哪个文件名：<paramref name="name"/> 没人用、或用着的是同一关的手序（认得同一份谱面指纹、键数也一样，玩家重新保存）就用它；
+    /// 用着的是另一首谱的（同一首歌不同谱师、别人分享的）、同一关别的键数的或读不出来的，依次试「名字 (2).json」「名字 (3).json」……，不覆盖别人的手序。
     /// 复现（2026-11-19 评审）：建议名只有「曲师 - 曲名」，原来同名直接覆盖。编辑器直接存进文件夹时按同样的规则（model.js）。
     /// </summary>
     /// <param name="text">要存的手序文件内容；它读不出来时不覆盖任何已有的文件。</param>
     public static string SaveName(string folder, string name, string text)
     {
-        var charts = ChartsOf(text);
+        var mine = LevelOf(text);
         for (var k = 1; k <= MaxNumbered; k++)
         {
             var candidate = Numbered(name, k);
             var path = Path.Combine(folder, candidate);
-            if (!File.Exists(path) || SameLevel(path, charts))
+            if (!File.Exists(path) || SameLevel(path, mine))
             {
                 return candidate;
             }
@@ -145,21 +145,30 @@ public static class FingeringInbox
         return $"{stem} ({k}).json";
     }
 
-    private static HashSet<string> ChartsOf(string text)
+    /// <summary>手序认得的谱面指纹和键数。</summary>
+    private static (HashSet<string> Charts, int Keys) LevelOf(string text)
     {
         try
         {
-            return new HashSet<string>(CustomFingering.Parse(text).Charts, StringComparer.Ordinal);
+            var file = CustomFingering.Parse(text);
+            return (new HashSet<string>(file.Charts, StringComparer.Ordinal), file.Keys);
         }
         catch (FormatException)
         {
-            return new HashSet<string>(); // 读不出来的手序：和谁都不算同一关
+            return (new HashSet<string>(), 0); // 读不出来的手序：和谁都不算同一关
         }
     }
 
-    private static bool SameLevel(string path, HashSet<string> charts) =>
-        charts.Count > 0 && new FileInfo(path).Length <= CustomFingering.MaxFileBytes
-        && ChartsOf(File.ReadAllText(path, Encoding.UTF8)).Overlaps(charts);
+    private static bool SameLevel(string path, (HashSet<string> Charts, int Keys) mine)
+    {
+        if (mine.Charts.Count == 0 || new FileInfo(path).Length > CustomFingering.MaxFileBytes)
+        {
+            return false;
+        }
+
+        var other = LevelOf(File.ReadAllText(path, Encoding.UTF8));
+        return other.Keys == mine.Keys && other.Charts.Overlaps(mine.Charts);
+    }
 
     private static string? Normalize(string? path)
     {

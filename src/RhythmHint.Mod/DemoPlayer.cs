@@ -26,6 +26,7 @@ internal sealed class DemoPlayer
     private int _nextSource;
     private double _builtBpm = double.NaN; // 演示谱按哪个 BPM（取到 0.001）和哪组排键设置排的，两样都没变就不重排
     private string _builtKey = string.Empty;
+    private int _builtKeys;
     private bool _running;
     private bool _followingMusic;
     private double _startDsp;
@@ -135,25 +136,35 @@ internal sealed class DemoPlayer
         return true;
     }
 
-    /// <summary>BPM 或排键参数变了就重排演示谱，改完立刻能看到新键位。</summary>
+    /// <summary>
+    /// 自动选键数时演示按几键播（设置窗口「键数」那一组里点的预览，默认 4K）；手动选的时候按选的键数。不存进设置文件。
+    /// </summary>
+    public static int PreviewKeys { get; set; } = 4;
+
+    /// <summary>演示按几键播。</summary>
+    public static int DemoKeys(Settings settings) => settings.AutoKeyCount ? PreviewKeys : settings.KeyCountFor(0).Keys;
+
+    /// <summary>BPM、排键参数或键数变了就重排演示谱，改完立刻能看到新键位。</summary>
     private void Rebuild(OverlayFrame frame, Settings settings, double bpm)
     {
         // 每帧调用：先比 BPM 和排键设置的指纹（设置没变时是同一个字符串），都没变就不重排，也不拼字符串
         var rounded = Math.Round(bpm, 3, MidpointRounding.AwayFromZero);
         var key = settings.FingeringKey;
-        if (rounded.Equals(_builtBpm) && key == _builtKey)
+        var keys = DemoKeys(settings);
+        if (rounded.Equals(_builtBpm) && key == _builtKey && keys == _builtKeys)
         {
             return;
         }
 
         _builtBpm = rounded;
         _builtKey = key;
+        _builtKeys = keys;
         _demo = DemoChart.BuildForSettings(bpm, settings.Style);
         var tiles = DemoChart.Repeat(_demo, Loops);
         _tileTimes = tiles.ConvertAll(t => t.Time).ToArray();
         var beats = BeatGrid.Build(new[] { (0.0, _demo.SecondsPerBeat) }, 0, _demo.LoopSeconds * Loops);
-        var notes = NotePlanner.Plan(tiles, settings.ToFingering());
-        frame.Load(notes, beats, _demo.LoopSeconds * Loops);
+        var notes = NotePlanner.Plan(tiles, settings.ToFingering(keys));
+        frame.Load(notes, beats, _demo.LoopSeconds * Loops, keys);
         frame.DifficultyTier = DifficultyEstimator.Estimate(tiles).Tier; // 设置窗口里预览徽章的样子
         frame.Bpm = (float)bpm;
         frame.Caption = _followingMusic

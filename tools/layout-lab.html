@@ -140,6 +140,7 @@ kbd { font-family: var(--font-num); background: var(--raise); border: 1px solid 
     <section class="card">
       <h2>「当前 Mod」列的参数</h2>
       <label>排键方式 <select id="pStyle"><option value="TimeReset">标准（时间重置法，默认）</option><option value="ReviewPreferenceV1">交替优先（试验性）</option></select></label>
+      <label>键数（只改「当前 Mod」一列） <select id="pKeys"><option value="4">4K</option><option value="6">6K（试验性）</option><option value="8">8K（试验性）</option></select></label>
       <div class="param"><span>主手重置间隔（毫秒）</span><input type="range" id="pReset" min="100" max="300" step="5" value="165"><output id="pResetOut">165</output></div>
       <div class="param"><span>双押前后换手（毫秒）</span><input type="range" id="pFocus" min="0" max="800" step="10" value="450"><output id="pFocusOut">450</output></div>
       <div class="param"><span>同键连按最短（毫秒）</span><input type="range" id="pJack" min="50" max="300" step="5" value="150"><output id="pJackOut">150</output></div>
@@ -268,6 +269,7 @@ const P = {
   reviewShortMinGap: NotePlanner.defaults.ReviewShortMinGap, reviewShortMaxGap: NotePlanner.defaults.ReviewShortMaxGap,
   reviewShortMinNotes: NotePlanner.defaults.ReviewShortMinNotes, reviewShortMaxNotes: NotePlanner.defaults.ReviewShortMaxNotes,
   reviewTimingTolerance: NotePlanner.defaults.ReviewTimingTolerance,
+  keys: NotePlanner.defaults.Keys,
 };
 const EPS = 1e-6;
 
@@ -293,16 +295,17 @@ function plannerOptions() {
     UseRoll: P.roll, OuterRoll: P.outer, LeftHanded: P.left, ChordsOnOtherHand: P.chordOther,
     Style: P.style, ReviewShortMinGap: P.reviewShortMinGap, ReviewShortMaxGap: P.reviewShortMaxGap,
     ReviewShortMinNotes: P.reviewShortMinNotes, ReviewShortMaxNotes: P.reviewShortMaxNotes,
-    ReviewTimingTolerance: P.reviewTimingTolerance,
+    ReviewTimingTolerance: P.reviewTimingTolerance, Keys: P.keys,
   };
 }
 
-function planMod(M) {
+// keys：不写就用参数里选的键数；手排、录制这些列只有四条轨道，用 4 键的结果
+function planMod(M, keys) {
   const hits = M.flatMap((m) => m.members.map((tile) => ({
     tileIndex: tile.i, time: tile.t, holdSeconds: tile.hold,
     angle: tile.ang == null || Number.isNaN(tile.ang) ? null : tile.ang, taps: tile.taps ?? 1,
   })));
-  const planned = NotePlanner.plan(hits, plannerOptions());
+  const planned = NotePlanner.plan(hits, { ...plannerOptions(), Keys: keys ?? P.keys });
   if (planned.length !== M.length) throw new Error("当前 Mod 与节奏分组不一致，请重新载入关卡");
   return planned.map((note) => note.lanes.map((entry) => entry.lane));
 }
@@ -348,7 +351,7 @@ function replan() {
   if (!S.level) return;
   const M = S.moments;
   S.plans = { mod: planMod(M), trill: planTrill(M), beat: planBeat(M), zigzag: planZigzag(M) };
-  if (!S.manual[S.level.key]) S.manual[S.level.key] = S.plans.mod.map((l) => [...l]);
+  if (!S.manual[S.level.key]) S.manual[S.level.key] = (P.keys === 4 ? S.plans.mod : planMod(M, 4)).map((l) => [...l]);
   S.plans.manual = S.manual[S.level.key];
   draw();
   renderStats();
@@ -363,12 +366,13 @@ function segRange() {
 
 const valid = (a) => Array.isArray(a) && a.length > 0 && a.every((l) => l >= 0);
 
-function stats(plan, idx) {
+// keys：这一列有几条轨道（中间两键是两根食指）
+function stats(plan, idx, keys = 4) {
   if (!plan) return null;
   let linked = 0, jumps = 0, lone = 0, middle = 0, total = 0;
   for (let j = 0; j < idx.length; j++) {
     const k = idx[j]; const lanes = plan[k]; if (!valid(lanes)) continue;
-    total++; if (lanes.every((l) => l === 1 || l === 2)) middle++;
+    total++; if (lanes.every((l) => l === keys / 2 - 1 || l === keys / 2)) middle++;
     const pk = idx[j - 1], nk = idx[j + 1];
     const dist = (a, b) => Math.min(...a.flatMap((x) => b.map((y) => Math.abs(x - y))));
     if (pk !== undefined && valid(plan[pk]) && S.moments[k].t - S.moments[pk].t <= 0.3) {
@@ -399,7 +403,8 @@ function renderStats() {
   const rec = currentRecordingPlan();
   for (const s of STRATS) {
     const plan = s.key === "mine" ? rec : S.plans[s.key];
-    STATS[s.key] = { base: stats(plan, idx), agree: rec && s.key !== "mine" ? agreement(plan, rec, idx) : null };
+    const keys = lanesOf(s.key);
+    STATS[s.key] = { base: stats(plan, idx, keys), agree: rec && s.key !== "mine" && keys === 4 ? agreement(plan, rec, idx) : null };
   }
   draw();
 }
@@ -407,6 +412,8 @@ function renderStats() {
 // ---------- 画面 ----------
 const cv = $("cv"); const ctx = cv.getContext("2d");
 const LANE = 30, COL = LANE * 4, GAP = 26, TOP = 64, PPS = 300;
+// 「当前 Mod」一列按选的键数画（列宽不变，轨道变窄），别的列都是四条轨道
+function lanesOf(key) { return key === "mod" ? P.keys : 4; }
 let dpr = 1;
 
 function columns() {
@@ -448,9 +455,10 @@ function draw() {
       ctx.fillStyle = b.m ? COLORS.measure : COLORS.beat;
       ctx.fillRect(x0, yOf(b.t) - (b.m ? 1 : 0.5), COL, b.m ? 2 : 1);
     }
+    const lanesHere = lanesOf(c.key), laneW = COL / lanesHere;
     if (c.key !== "rhythm") {
       ctx.fillStyle = COLORS.line;
-      for (let l = 1; l < 4; l++) ctx.fillRect(x0 + l * LANE, TOP, 1, H - TOP);
+      for (let l = 1; l < lanesHere; l++) ctx.fillRect(x0 + l * laneW, TOP, 1, H - TOP);
     }
     // 音符
     const plan = c.key === "rhythm" ? null : c.key === "mine" ? currentRecordingPlan() : S.plans[c.key];
@@ -468,9 +476,9 @@ function draw() {
       for (const l of lanes) {
         if (l < 0) continue;
         ctx.fillStyle = keys > 2 ? COLORS.purple : keys > 1 ? COLORS.blue : COLORS.orange;
-        ctx.fillRect(x0 + l * LANE + 3, y - 6, LANE - 6, 12);
+        ctx.fillRect(x0 + l * laneW + 3, y - 6, laneW - 6, 12);
         ctx.strokeStyle = "rgba(255,255,255,0.75)"; ctx.lineWidth = 1.2;
-        ctx.strokeRect(x0 + l * LANE + 3, y - 6, LANE - 6, 12);
+        ctx.strokeRect(x0 + l * laneW + 3, y - 6, laneW - 6, 12);
       }
       if (c.key === "mine" && S.shownRec && S.shownRec.extra[k]) {
         ctx.fillStyle = COLORS.muted; ctx.font = "11px " + getComputedStyle(document.body).getPropertyValue("--font-num");
@@ -485,7 +493,7 @@ function draw() {
         if (a > 0 && (c.key === "rhythm" || c.key === S.run.target)) {
           ctx.fillStyle = (f.ok === false ? "rgba(226,87,76," : f.ok === true ? "rgba(76,195,138," : "rgba(245,120,42,") + (0.5 * a) + ")";
           if (c.key === "rhythm") ctx.fillRect(x0, judgeY - 60, COL, 60);
-          else ctx.fillRect(x0 + l * LANE, judgeY - 60, LANE, 60);
+          else ctx.fillRect(x0 + l * laneW, judgeY - 60, laneW, 60);
         }
       }
     }
@@ -924,6 +932,7 @@ function init() {
   $("pOuter").addEventListener("change", () => { P.outer = $("pOuter").checked; replan(); });
   $("pChordOther").addEventListener("change", () => { P.chordOther = $("pChordOther").checked; replan(); });
   $("pStyle").addEventListener("change", () => { P.style = $("pStyle").value; replan(); });
+  $("pKeys").addEventListener("change", () => { P.keys = Number($("pKeys").value); replan(); });
   $("pLeft").addEventListener("change", () => { P.left = $("pLeft").checked; replan(); });
   window.addEventListener("resize", resize);
   if (S.levels.length) loadLevel(0);

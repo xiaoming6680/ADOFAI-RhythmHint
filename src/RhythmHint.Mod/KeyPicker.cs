@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using RhythmHint.Core;
 using UnityEngine;
 using static RhythmHint.WindowSkin;
@@ -130,16 +131,17 @@ internal sealed class KeyboardPanel
 }
 
 /// <summary>
-/// 「按键框」的键位：默认的 D F J K，或「自定义」用屏幕键盘给四个框各选一个键（选中第几个框再点键盘，点完自动跳到下一个）。
-/// 已经是打开设置窗口快捷键的键不能选（不然打歌时按到会开关设置窗口）。
+/// 「按键框」的键位：4K、6K、8K 各一套（2026-11-22），每套是默认的（D F J K、S D F J K L、A S D F J K L ;），或「自定义」用屏幕键盘
+/// 给每个框各选一个键（选中第几个框再点键盘，点完自动跳到下一个）。已经是打开设置窗口快捷键的键不能选（不然打歌时按到会开关设置窗口）。
 /// </summary>
 internal sealed class KeyPicker
 {
-    private const string Default = "D F J K";
+    private static readonly Settings Defaults = new();
 
     private readonly KeyboardPanel _keyboard = new();
     private bool _custom;   // 点了「自定义」：当前键位正好是默认时也显示自定义
-    private int _slot = -1; // 正在指定的按键框（0–3），-1 表示没选、不显示屏幕键盘
+    private int _slot = -1; // 正在指定的按键框，-1 表示没选、不显示屏幕键盘
+    private int _keys;      // 正在设哪一套（4、6、8），0 = 还没选过：按这一关 / 演示现在的键数
 
     /// <summary>收起自定义（换页、恢复默认值时）。当前键位不是默认时仍会显示自定义。</summary>
     public void Close()
@@ -151,23 +153,37 @@ internal sealed class KeyPicker
     public void Draw(Ui ui, Settings s)
     {
         // 这一帧画什么在开头定好：点击改的是字段，下一帧才生效，同一帧里控件数量不变
-        var custom = _custom || s.KeyLabels != Default;
+        var count = _keys > 0 ? _keys : DemoPlayer.DemoKeys(s);
+        var tab = ui.Choice("keySet", "keyboard", Lang.T("键数"), null, Mathf.Max(0, Array.IndexOf(KeyLayout.Modes, count)), "4K", "6K", "8K");
+        if (KeyLayout.Modes[tab] != count)
+        {
+            Close();
+            _keys = KeyLayout.Modes[tab];
+            if (s.AutoKeyCount)
+            {
+                DemoPlayer.PreviewKeys = _keys; // 演示跟着换，看得到这一套键位画在面板上的样子
+            }
+        }
+
+        var labels = s.KeyLabelsFor(count);
+        var defaults = Defaults.KeyLabelsFor(count);
+        var custom = _custom || labels != defaults;
         var slot = custom ? _slot : -1;
-        var keys = KeyBindings.Split(s.KeyLabels);
+        var keys = KeyBindings.Split(labels, count);
         var hint = !custom ? null
             : slot >= 0 ? Lang.T("为第 {0} 个按键框选择按键；已被占用的键会互换。", slot + 1)
             : Lang.T("点击按键框可重新指定按键。");
-        var choice = ui.Choice("keys", "keyboard", Lang.T("键位"), hint, custom ? 1 : 0, Default, Lang.T("自定义"));
+        var choice = ui.Choice("keys", "keyboard", Lang.T("键位"), hint, custom ? 1 : 0, defaults, Lang.T("自定义"));
         if (choice == 0 && custom)
         {
-            s.KeyLabels = Default;
+            s.SetKeyLabels(count, defaults);
             Close();
         }
         else if (choice == 1 && !custom)
         {
             _custom = true;
             _slot = 0; // 直接从第 1 个键开始点
-            _keyboard.ShowPageOf(keys.Length > 0 ? keys[0] : Default);
+            _keyboard.ShowPageOf(keys[0]);
         }
 
         if (!custom)
@@ -175,13 +191,15 @@ internal sealed class KeyPicker
             return;
         }
 
-        // 四个按键框：正在选的那个橙底、一闪一闪
+        // 按键框：正在选的那个橙底、一闪一闪；两只手中间多空一点。8 个放一行时框窄一点
         var slotsRow = ui.Take(64);
-        const float slotW = 92;
-        var left = slotsRow.center.x - (((keys.Length * slotW) + ((keys.Length - 1) * 12)) / 2);
+        const float gap = 12;
+        const float handGap = 28;
+        var slotW = Mathf.Min(92, (slotsRow.width - (Ui.Pad * 2) - ((keys.Length - 2) * gap) - handGap) / keys.Length);
+        var left = slotsRow.center.x - (((keys.Length * slotW) + ((keys.Length - 2) * gap) + handGap) / 2);
         for (var i = 0; i < keys.Length; i++)
         {
-            var r = new Rect(left + (i * (slotW + 12)), slotsRow.y + 6, slotW, 48);
+            var r = new Rect(left + (i * (slotW + gap)) + (i >= keys.Length / 2 ? handGap - gap : 0), slotsRow.y + 6, slotW, 48);
             if (i == slot)
             {
                 var pulse = 0.5f + (0.5f * Mathf.Sin(Time.unscaledTime * 5f));
@@ -214,9 +232,9 @@ internal sealed class KeyPicker
         ui.Hint(Lang.T("橙色字的键已分给其他按键框；灰色的键是打开设置窗口的快捷键，不能选。"));
         if (picked != null)
         {
-            s.KeyLabels = KeyBindings.Assign(s.KeyLabels, slot, picked);
+            s.SetKeyLabels(count, KeyBindings.Assign(labels, slot, picked, count));
             _custom = true;
-            _slot = slot + 1 < keys.Length ? slot + 1 : -1; // 四个都点完就收起键盘
+            _slot = slot + 1 < keys.Length ? slot + 1 : -1; // 都点完就收起键盘
             if (_slot >= 0)
             {
                 _keyboard.ShowPageOf(keys[_slot]);
@@ -267,7 +285,8 @@ internal sealed class HotkeyPicker
             return;
         }
 
-        var lanes = KeyBindings.Split(s.KeyLabels);
+        // 4K、6K、8K 哪一套里的键都不能当快捷键（哪一关都可能用到）
+        var lanes = Array.ConvertAll(KeyLayout.Modes, k => KeyBindings.Split(s.KeyLabelsFor(k), k)).SelectMany(k => k).ToArray();
         var picked = _keyboard.Draw(ui, "hkb", key =>
             KeyBindings.Same(key, s.SettingsHotkey) ? KeyState.Selected
             : Array.Exists(lanes, k => KeyBindings.Same(k, key)) ? KeyState.Blocked

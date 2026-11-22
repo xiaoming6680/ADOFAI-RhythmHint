@@ -21,6 +21,7 @@ internal sealed partial class SettingsWindow
     private void RulesPage(Settings s, Overlay overlay)
     {
         PageHeader(Page.Rules, Lang.T("自动排键只看本关的砖块间隔，不针对任何谱面特化；修改后立即重新排键。"));
+        KeysCard(s);
         StyleCard(s);
 
         // 惯用手与多押：两个选择 + 键位图（主手橙框、多押用的键蓝光），说明里的手和键跟着换（左撇子是整套左右镜像）
@@ -77,6 +78,41 @@ internal sealed partial class SettingsWindow
         _ui.Gap(6);
         ResetFooter(overlay, "rules", s.ResetFingering, Lang.T("惯用手和多押用手保持不变。"));
     }
+
+    /// <summary>
+    /// 键数（2026-11-22 用户：按谱面难度动态选择，玩家可以关掉、改难度区间或者直接选几键）：自动（试验性）或 4K、6K、8K。
+    /// 自动时可以改从哪一档起用 6K、8K，演示按几键播另外选（演示谱的难度估出来是 P 档，按难度只会是 4K）。
+    /// </summary>
+    private void KeysCard(Settings s)
+    {
+        _ui.BeginCard("keyCount", "keyboard", Lang.T("键数"));
+        var selected = s.AutoKeyCount ? 0 : System.Array.IndexOf(KeyLayout.Modes, s.KeyCountFor(0).Keys) + 1;
+        var picked = _ui.Choice("keyCount", "keyboard", Lang.T("用几键"), s.AutoKeyCount ? Lang.T("按估算难度自动选（试验性）") : null, selected,
+            Lang.T("自动"), "4K", "6K", "8K");
+        if (picked != selected)
+        {
+            s.AutoKeyCount = picked == 0;
+            if (picked > 0)
+            {
+                s.KeyCount = KeyLayout.Modes[picked - 1];
+            }
+        }
+
+        if (s.AutoKeyCount)
+        {
+            s.SixKeysFromTier = _ui.SliderInt("sixFrom", "gauge", Lang.T("从这一档起用 6K"), null, s.SixKeysFromTier, 1, 61, 1, TierName);
+            s.EightKeysFromTier = _ui.SliderInt("eightFrom", "gauge", Lang.T("从这一档起用 8K"), null, s.EightKeysFromTier, s.SixKeysFromTier, 61, 1, TierName);
+            var preview = System.Array.IndexOf(KeyLayout.Modes, DemoPlayer.PreviewKeys);
+            DemoPlayer.PreviewKeys = KeyLayout.Modes[_ui.Choice("previewKeys", "play", Lang.T("演示按几键播"), null, Mathf.Max(0, preview), "4K", "6K", "8K")];
+            _ui.Hint(Lang.T("比 6K 的起点低的用 4K；估不出难度时用 4K。用上的专属手序是几键就按几键显示。"), 6);
+        }
+
+        _ui.Hint(Lang.T("6K、8K 先照 4K 排在中间四个键上，快到一根手指来不及再按时才用上无名指、小指。各键数的按键在「外观」页的按键框里设。"));
+        _ui.EndCard();
+    }
+
+    /// <summary>档位名（P1…U20），61 是不用这种键数。</summary>
+    private static string TierName(int tier) => tier >= KeyCountChooser.Never ? Lang.T("不用") : DifficultyTiers.Name(tier);
 
     /// <summary>排法：两张卡片；选了交替优先，它自己的参数在下面展开（左边一道黄条，看得出是它专属的）。</summary>
     private void StyleCard(Settings s)

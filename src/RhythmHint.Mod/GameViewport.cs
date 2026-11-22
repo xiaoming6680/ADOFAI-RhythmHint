@@ -28,7 +28,8 @@ internal sealed class GameViewport
     public ScreenMargins Freed { get; private set; }
 
     /// <param name="shrinkUi">这一帧界面文字跟着缩（在关卡里，或刚离开关卡、面板还在滑出）。</param>
-    public void Apply(float presence, Settings settings, bool shrinkUi)
+    /// <param name="keys">下落面板几条轨道（面板宽度跟着变）。</param>
+    public void Apply(float presence, Settings settings, bool shrinkUi, int keys)
     {
         if (!settings.ShrinkGameView || presence <= 0 || Screen.width <= 0 || Screen.height <= 0)
         {
@@ -36,11 +37,13 @@ internal sealed class GameViewport
             return;
         }
 
-        var layout = new OverlayLayout(settings);
-        // 让出来的区域取整到整数像素，和面板边缘对齐（不留缝）
-        var lanes = Mathf.Round((settings.ShowLanes ? layout.PanelWidth : 0f) * presence);
+        var layout = new OverlayLayout(settings, keys, PanelMotion.Pose);
+        // 让出来的区域取整到整数像素，和面板边缘对齐（不留缝）。面板在中间时左右都不让（盖在画面上）；换位置的途中按份量让
+        var lanes = Mathf.Round(layout.PanelWidth * PanelMotion.LanesShown * presence);
         var bar = Mathf.Round(layout.StripHeight * presence);
-        Freed = new ScreenMargins(layout.LanesRight ? 0 : lanes, layout.LanesRight ? lanes : 0, layout.TaikoBottom ? 0 : bar, layout.TaikoBottom ? bar : 0);
+        var (left, right) = layout.SideMargins(lanes);
+        var bottom = Mathf.Round(bar * layout.Pose.Bottom);
+        Freed = new ScreenMargins(left, right, bar - bottom, bottom);
         var f = Freed;
         var cameras = GameCameras();
         _shrinker.Apply(cameras, new ScreenMargins(f.Left / Screen.width, f.Right / Screen.width, f.Top / Screen.height, f.Bottom / Screen.height));

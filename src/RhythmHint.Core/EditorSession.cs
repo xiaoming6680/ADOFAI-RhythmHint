@@ -44,6 +44,30 @@ public sealed class SessionAudio
 }
 
 /// <summary>
+/// 同一关换一种键数时编辑器要的东西（2026-11-22 用户：编辑器里能切换 4K、6K、8K）：这个键数的手序（专属手序或自动排键）、
+/// 保存用的文件名、键位、两种自动排法。轨道、音乐、节拍线这些和键数无关的放在 <see cref="EditorSession"/> 上，几种键数共用。
+/// </summary>
+public sealed class SessionVariant
+{
+    /// <summary>这个键数在编辑器历史里的 Id（<see cref="SessionLibrary.IdOf"/>，6K、8K 带「-6k」「-8k」），草稿按它存。</summary>
+    public string Id { get; set; } = string.Empty;
+
+    public CustomFingering Fingering { get; set; } = new();
+
+    public IReadOnlyList<bool> FromAuto { get; set; } = Array.Empty<bool>();
+
+    public string UsedFile { get; set; } = string.Empty;
+
+    public string FileName { get; set; } = string.Empty;
+
+    public IReadOnlyList<string> KeyLabels { get; set; } = Array.Empty<string>();
+
+    public IReadOnlyList<PlannedNote> Standard { get; set; } = Array.Empty<PlannedNote>();
+
+    public IReadOnlyList<PlannedNote> Alternate { get; set; } = Array.Empty<PlannedNote>();
+}
+
+/// <summary>
 /// 「编辑本关手序」交给编辑器的一份数据：Mod 写成编辑器目录下的 session.js（file:// 打开的网页不能读别的文件，
 /// 但能用 &lt;script&gt; 载入同目录的脚本），编辑器打开时自动载入。除了本关的手序，还带上改手序时用来参考的东西：
 /// 两种自动排法、节拍线、轨道形状、音乐和波形。
@@ -107,6 +131,9 @@ public sealed class EditorSession
     /// <summary>编辑器的打拍声：这一关游戏里的打击声（WAV）。读不到为空，编辑器用合成的声音代替。</summary>
     public byte[] HitSound { get; set; } = Array.Empty<byte>();
 
+    /// <summary>同一关的其他键数（编辑器里切换用）；上面的是游戏里正在显示的键数。旧版编辑器不认这个字段，照旧只打开上面那个。</summary>
+    public IReadOnlyList<SessionVariant> Variants { get; set; } = Array.Empty<SessionVariant>();
+
     /// <summary>写成 <c>window.RHYTHMHINT_SESSION = {…};</c>。</summary>
     public string ToScript()
     {
@@ -120,39 +147,18 @@ public sealed class EditorSession
             Prop(w, "modVersion", ModVersion);
             w.WritePropertyName("roundNotes");
             w.WriteValue(RoundNotes);
-            Prop(w, "usedFile", UsedFile);
-            Prop(w, "fileName", FileName);
             Prop(w, "saveFolder", SaveFolder);
             Prop(w, "saveStartIn", SaveStartIn);
-            w.WritePropertyName("keyLabels");
-            w.WriteStartArray();
-            foreach (var label in KeyLabels)
+            WriteKeyed(w, new SessionVariant
             {
-                w.WriteValue(label);
-            }
-
-            w.WriteEndArray();
-
-            w.WritePropertyName("fingering");
-            w.WriteStartObject();
-            Fingering.WriteHeader(w);
-            CustomFingering.WriteHitsAndNotes(w, Fingering.Hits, Fingering.Notes);
-            w.WriteEndObject();
-
-            w.WritePropertyName("fromAuto");
-            w.WriteStartArray();
-            foreach (var auto in FromAuto)
-            {
-                w.WriteValue(auto ? 1 : 0);
-            }
-
-            w.WriteEndArray();
-
-            w.WritePropertyName("references");
-            w.WriteStartObject();
-            CustomFingering.WriteNotes(w, "standard", Standard);
-            CustomFingering.WriteNotes(w, "alternate", Alternate);
-            w.WriteEndObject();
+                Fingering = Fingering,
+                FromAuto = FromAuto,
+                UsedFile = UsedFile,
+                FileName = FileName,
+                KeyLabels = KeyLabels,
+                Standard = Standard,
+                Alternate = Alternate,
+            });
 
             w.WritePropertyName("beats");
             w.WriteStartArray();
@@ -243,10 +249,61 @@ public sealed class EditorSession
                 w.WriteValue(Convert.ToBase64String(HitSound));
             }
 
+            if (Variants.Count > 0)
+            {
+                w.WritePropertyName("variants");
+                w.WriteStartArray();
+                foreach (var v in Variants)
+                {
+                    w.WriteStartObject();
+                    Prop(w, "id", v.Id);
+                    WriteKeyed(w, v);
+                    w.WriteEndObject();
+                }
+
+                w.WriteEndArray();
+            }
+
             w.WriteEndObject();
         }
 
         return "window.RHYTHMHINT_SESSION = " + sw + ";\n";
+    }
+
+    /// <summary>和键数有关的那些字段（会话本身和 <see cref="Variants"/> 里每一种键数写法一样）。</summary>
+    private static void WriteKeyed(JsonWriter w, SessionVariant v)
+    {
+        Prop(w, "usedFile", v.UsedFile);
+        Prop(w, "fileName", v.FileName);
+        w.WritePropertyName("keyLabels");
+        w.WriteStartArray();
+        foreach (var label in v.KeyLabels)
+        {
+            w.WriteValue(label);
+        }
+
+        w.WriteEndArray();
+
+        w.WritePropertyName("fingering");
+        w.WriteStartObject();
+        v.Fingering.WriteHeader(w);
+        CustomFingering.WriteHitsAndNotes(w, v.Fingering.Hits, v.Fingering.Notes);
+        w.WriteEndObject();
+
+        w.WritePropertyName("fromAuto");
+        w.WriteStartArray();
+        foreach (var auto in v.FromAuto)
+        {
+            w.WriteValue(auto ? 1 : 0);
+        }
+
+        w.WriteEndArray();
+
+        w.WritePropertyName("references");
+        w.WriteStartObject();
+        CustomFingering.WriteNotes(w, "standard", v.Standard);
+        CustomFingering.WriteNotes(w, "alternate", v.Alternate);
+        w.WriteEndObject();
     }
 
     private static void Prop(JsonWriter w, string name, string value)

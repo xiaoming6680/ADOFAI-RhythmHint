@@ -27,13 +27,13 @@ So I made this mod: it turns every level's tiles into falling notes, so you can 
 
 <img src="docs/images/anatomy.webp" alt="Parts of the screen" width="880">
 
-- **Four lanes**: one note for every tile you need to press. Orange for single notes, blue for doubles, purple for triples and quads, and holds get a tail. Notes can be bars or round notes like the ones on the taiko bar
+- **Falling lanes** (four, or six or eight on hard charts; see 6K / 8K below): one note for every tile you need to press. Orange for single notes, blue for doubles, purple for triples and quads, and holds get a tail. Notes can be bars or round notes like the ones on the taiko bar
 - **Key boxes at the bottom**: light up when you press D F J K; the keys can be changed
 - **Taiko bar**: a long stretch of the upcoming rhythm at a glance; purple triples and quads are marked 3 and 4
 - **Lane side of the taiko bar**: current BPM, time left, and a difficulty estimated from the level's tiles (experimental)
 - **Fit game view beside panel**: the game view and its UI text (combo, judgments, pause menu) shrink into the space next to the panel, so nothing is covered
 
-The four-lane panel can sit on the left or the right, and the taiko bar at the top or the bottom; the game view moves out of the way.
+The falling panel can sit on the left or the right, and the taiko bar at the top or the bottom; the game view moves out of the way.
 
 The panel slides in when a level starts and out when it ends. It also hides when you pause with Esc, so it never covers the pause menu, and it freezes when you die and continues when you restart. Works with official levels, custom levels, and editor playtests and autoplay.
 
@@ -50,8 +50,8 @@ Outside a level, a demo that follows the menu music plays next to the settings w
 | Page | What it's for |
 |---|---|
 | Overview | Current status, a few display switches, and shortcuts to Appearance, Fingering and Custom fingering |
-| Appearance | Note style (bars / circles), panel position, which parts to show, keys, size |
-| Fingering | Fingering style, dominant hand, chord hand, rolls and thresholds |
+| Appearance | Note style (bars / circles), panel position, which parts to show, keys (one set each for 4K, 6K and 8K), size |
+| Fingering | Key count, fingering style, dominant hand, chord hand, rolls and thresholds |
 | Custom fingering | Make your own fingering for this song, open the fingering folder |
 | Calibration | Visual offset: adjust here if notes and music don't line up |
 | General | Interface language, the hotkey that opens the settings, automatic updates, status |
@@ -86,6 +86,17 @@ On the Fingering page you can also:
 - **Put chords on the other hand**: for example, single notes on right J and doubles on left D F, with single notes next to a double moving to the right hand
 - **Adjust the thresholds and rolls** if something doesn't feel right
 
+## 6K / 8K (experimental)
+
+Besides 4K (D F J K) there are 6K (S D F J K L) and 8K (A S D F J K L ;). By default the key count is chosen from the estimated difficulty: P tiers stay 4K, 6K from G1, 8K from U6. When a custom fingering is in use, it is shown with its own key count.
+
+- **Slow notes on the right index finger, medium ones alternating the two index fingers**, as easy to pick up as 4K
+- **Fast runs roll across both hands**: the run is split between the hands, each hand rolling from the outside in to the index finger. Three or four notes use two fingers per hand, longer runs the whole hand: **L K J S D F** in 6K, **; L K J A S D F** in 8K
+- **Chords stay on one hand when it has the fingers**: triples in 6K and quads in 8K are played with one hand
+- **A finger that has no time to rest is swapped out**: for example, if the same key would come again right after a double, a rested finger takes it
+
+If you'd rather not have it chosen for you, pick 4K / 6K / 8K under Key count on the Fingering page, or change the tiers where 6K and 8K start. Set the keys for each key count under Key boxes on the Appearance page.
+
 ## Custom fingering
 
 If the automatic fingering doesn't suit you, make your own for a song, or use one someone shared.
@@ -119,7 +130,7 @@ To build it yourself, see the [development notes](docs/开发说明.md) (in Chin
 ## Troubleshooting
 
 - **No hints showing**: F8 → Status on the General page tells you why; the UMM log `Managed\UnityModManager\Log.txt` has it too
-- **Not using D F J K**: under Key boxes on the Appearance page, click Custom and pick your own four keys on the on-screen keyboard (Shift, Space, arrow keys, the numpad, F1–F12 and mouse side buttons all work). The hotkey that opens the settings is changed on the General page
+- **Not using D F J K**: under Key boxes on the Appearance page, pick 4K, 6K or 8K, then click Custom and pick your own keys on the on-screen keyboard (Shift, Space, arrow keys, the numpad, F1–F12 and mouse side buttons all work). The hotkey that opens the settings is changed on the General page
 - **Notes and music don't line up**: adjust Visual offset on the Calibration page until notes land right on the beat
 - **Does it affect my results?** No, judgment is not touched at all
 

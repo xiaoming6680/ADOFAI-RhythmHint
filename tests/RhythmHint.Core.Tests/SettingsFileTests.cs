@@ -453,8 +453,10 @@ public sealed class SettingsFileTests : IDisposable
     [Fact]
     public void FingeringKeyChangesWithEverythingThatChangesTheFingering()
     {
-        // 每帧都比 FingeringKey：只在设置变了时重新拼。ToFingering 用到的每一项（和专属手序开关）变了，指纹都要变
-        static string Options(Settings s) => string.Join("|", typeof(FingeringOptions).GetProperties().Select(p => $"{p.Name}={p.GetValue(s.ToFingering())}"));
+        // 每帧都比 FingeringKey：只在设置变了时重新拼。ToFingering 用到的每一项、定这一关按几键的设置（各档位、估不出难度时）
+        // 和专属手序开关变了，指纹都要变。手动选的键数在自动模式下用不上，也算进去（切回手动时不用再改别的）
+        static string Options(Settings s) => string.Join("|", typeof(FingeringOptions).GetProperties().Select(p => $"{p.Name}={p.GetValue(s.ToFingering())}"))
+            + "|" + string.Join(",", Enumerable.Range(0, 62).Select(tier => s.KeyCountFor(tier)));
 
         foreach (var f in typeof(Settings).GetFields(BindingFlags.Public | BindingFlags.Instance))
         {
@@ -469,7 +471,7 @@ public sealed class SettingsFileTests : IDisposable
                 : throw new InvalidOperationException($"测试不认识 {f.Name} 的类型 {f.FieldType}");
             f.SetValue(s, changed);
 
-            if (Options(s) != options || f.Name == nameof(Settings.UseCustomFingering))
+            if (Options(s) != options || f.Name is nameof(Settings.UseCustomFingering) or nameof(Settings.KeyCount))
             {
                 Assert.True(s.FingeringKey != key, $"{f.Name} 改了排键结果，FingeringKey 却没变");
             }

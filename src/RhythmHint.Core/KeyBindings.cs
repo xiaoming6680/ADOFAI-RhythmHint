@@ -3,7 +3,7 @@ using System;
 namespace RhythmHint.Core;
 
 /// <summary>
-/// 设置里的键位：四个按键名用空格隔开，如 "D F J K"、"A S ; '"、"LeftShift Z X Space"。
+/// 设置里的键位：几个按键名用空格隔开，如 "D F J K"、"A S ; '"、"LeftShift Z X Space"（6K、8K 各存一份，见 Settings.KeyLabelsFor）。
 /// 按键名是 Unity 的 KeyCode 名字或符号本身（Mod 用它点亮按键框），没指定的位置写 <see cref="Unbound"/>。
 /// </summary>
 public static class KeyBindings
@@ -11,11 +11,11 @@ public static class KeyBindings
     /// <summary>没指定按键的位置（Unity 的 KeyCode.None）。</summary>
     public const string Unbound = "None";
 
-    /// <summary>拆成四个按键名：不足四个的补 <see cref="Unbound"/>，多出来的忽略。</summary>
-    public static string[] Split(string? labels)
+    /// <summary>拆成 <paramref name="count"/> 个按键名：不足的补 <see cref="Unbound"/>，多出来的忽略。</summary>
+    public static string[] Split(string? labels, int count = 4)
     {
         var parts = (labels ?? string.Empty).Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-        var keys = new string[Lanes.Count];
+        var keys = new string[count];
         for (var i = 0; i < keys.Length; i++)
         {
             keys[i] = i < parts.Length ? parts[i] : Unbound;
@@ -26,13 +26,13 @@ public static class KeyBindings
 
     /// <summary>
     /// 把第 <paramref name="lane"/> 个键换成 <paramref name="key"/>，返回新的键位文字。
-    /// <paramref name="key"/> 已经在别的位置时两个位置互换，四个键不会重复。
+    /// <paramref name="key"/> 已经在别的位置时两个位置互换，键不会重复。
     /// </summary>
-    public static string Assign(string? labels, int lane, string key)
+    public static string Assign(string? labels, int lane, string key, int count = 4)
     {
-        if (lane < 0 || lane >= Lanes.Count)
+        if (lane < 0 || lane >= count)
         {
-            throw new ArgumentOutOfRangeException(nameof(lane), lane, "按键框只有 4 个。");
+            throw new ArgumentOutOfRangeException(nameof(lane), lane, $"按键框只有 {count} 个。");
         }
 
         if (string.IsNullOrEmpty(key) || key.IndexOf(' ') >= 0)
@@ -40,7 +40,7 @@ public static class KeyBindings
             throw new ArgumentException("按键名不能为空，也不能含空格。", nameof(key));
         }
 
-        var keys = Split(labels);
+        var keys = Split(labels, count);
         var other = Array.FindIndex(keys, k => Same(k, key));
         if (other >= 0 && other != lane)
         {

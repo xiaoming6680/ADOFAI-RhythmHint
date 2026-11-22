@@ -93,9 +93,18 @@ public sealed class DemoChart
         }
 
         // 第 12–13 拍：1/8 拍连打（够快，同一只手两根手指轮指 K J D F，四条轨道都用到）
-        for (var i = 0; i < 16; i++)
+        // 设置页的演示后半拍换成每 20 ms 一下的超快连打（转角正常，像谱师用高 BPM 画的那种）：6K、8K 在这里用上外侧的手指（越快用的手指越多）
+        for (var i = 0; i < (forSettings ? 8 : 16); i++)
         {
             Add(12 + (i * 0.125));
+        }
+
+        if (forSettings)
+        {
+            for (var i = 0; i < 10; i++)
+            {
+                tiles.Add(new TileHit(tiles.Count + 1, (13 * spb) + (i * 0.02), 0, 180));
+            }
         }
 
         // 第 14.5 拍：三押（紫色）。和前面的 1/8 拍连打隔开大半拍，免得小转角的连打和它串成一长串

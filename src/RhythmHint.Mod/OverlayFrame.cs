@@ -26,15 +26,20 @@ internal sealed class OverlayFrame
     public IReadOnlyList<BeatLine> Beats = Array.Empty<BeatLine>();
     public readonly Dictionary<int, (float Time, Color Color)> Flash = new();
     public (float Time, Color Color) TaikoFlash = (-10f, Painter.Orange);
-    public readonly bool[] KeysDown = new bool[Lanes.Count];
+    /// <summary>每个按键框对应的键按着没有（最多 8 个，前 <see cref="Keys"/> 个有用）。</summary>
+    public readonly bool[] KeysDown = new bool[8];
     public string[] KeyLabels = Array.Empty<string>();
+
+    /// <summary>按几键显示（4、6、8）：<see cref="Load"/> 时定，换关、换设置后跟着变。</summary>
+    public int Keys { get; private set; } = 4;
 
     private int _lastSeq = -1;
 
-    /// <summary>换了一套音符（换关、重开、进出演示）时调用。</summary>
-    public void Load(IReadOnlyList<PlannedNote> notes, IReadOnlyList<BeatLine> beats, double endTime)
+    /// <summary>换了一套音符（换关、重开、进出演示）时调用。<paramref name="keys"/> 是音符按几键排的。</summary>
+    public void Load(IReadOnlyList<PlannedNote> notes, IReadOnlyList<BeatLine> beats, double endTime, int keys = 4)
     {
         Notes = notes;
+        Keys = keys;
         Beats = beats;
         EndTime = endTime;
         DifficultyTier = 0;
@@ -113,37 +118,147 @@ internal sealed class OverlayFrame
 }
 
 /// <summary>
-/// 按屏幕大小算出各部分的位置，基准是 1080p。四轨面板在左边或右边、太鼓条在上面或下面（设置里选，用户要求）；
+/// 下落面板的宽度和位置、太鼓条在上还是在下。Right、Center 是面板在右边、中间的份量（0–1，左边 = 1 − Right − Center），
+/// Bottom 是太鼓条在下面的份量；到位时都是 0 或 1，换位置的途中在两者之间（<see cref="PanelMotion"/>）。
+/// </summary>
+internal readonly record struct PanelPose(float Width, float Right, float Center, float Bottom)
+{
+    public float Left => 1 - Right - Center;
+
+    /// <summary>设置里选的位置、这个键数的面板宽度。</summary>
+    public static PanelPose Target(Settings s, int keys) => new(
+        Mathf.Round(OverlayLayout.LaneBase(keys) * keys * OverlayLayout.ScaleOf(s)),
+        s.LanesInCenter || !s.LanesOnRight ? 0 : 1,
+        s.LanesInCenter ? 1 : 0,
+        s.TaikoAtBottom ? 1 : 0);
+}
+
+/// <summary>
+/// 换键数、换位置时面板平滑过去（2026-11-22 用户：切换 K 数时面板宽度一下跳过去很生硬，类似的地方也加过渡）：
+/// 宽度、左中右、太鼓条上下都缓动；换键数时轨道里的东西从淡到实。面板没显示时直接到位，进关卡不会从上一关的宽度滑过来。
+/// </summary>
+internal static class PanelMotion
+{
+    private const float Duration = 0.35f;
+    private static int _keys;
+
+    /// <summary>这一帧的位置和宽度（<see cref="Update"/> 算好的）。</summary>
+    public static PanelPose Pose { get; private set; }
+
+    /// <summary>轨道里的东西（节拍线、音符、按键框）的透明度：换键数时从淡到实。</summary>
+    public static float ContentAlpha { get; private set; } = 1;
+
+    /// <summary>下落面板显示了多少（0–1）：设置里开关下落面板时滑出 / 滑入，游戏画面跟着让位。</summary>
+    public static float LanesShown { get; private set; } = 1;
+
+    /// <summary>每帧调用一次，在游戏画面让位和画面板之前。</summary>
+    public static void Update(Settings s, int keys, bool visible)
+    {
+        var target = PanelPose.Target(s, keys);
+        if (!visible || Pose.Width <= 0)
+        {
+            Motion.Set("panel:w", target.Width);
+            Motion.Set("panel:r", target.Right);
+            Motion.Set("panel:c", target.Center);
+            Motion.Set("panel:b", target.Bottom);
+            Motion.Set("panel:fade", 1);
+            Motion.Set("panel:lanes", s.ShowLanes ? 1 : 0);
+            Pose = target;
+            ContentAlpha = 1;
+            LanesShown = s.ShowLanes ? 1 : 0;
+            _keys = keys;
+            return;
+        }
+
+        if (keys != _keys)
+        {
+            _keys = keys;
+            Motion.Set("panel:fade", 0.2f);
+        }
+
+        Pose = new PanelPose(
+            Motion.Ease("panel:w", target.Width, Duration),
+            Motion.Ease("panel:r", target.Right, Duration),
+            Motion.Ease("panel:c", target.Center, Duration),
+            Motion.Ease("panel:b", target.Bottom, Duration));
+        ContentAlpha = Motion.Ease("panel:fade", 1, 0.3f);
+        LanesShown = Motion.Ease("panel:lanes", s.ShowLanes ? 1 : 0, Duration);
+    }
+}
+
+/// <summary>
+/// 按屏幕大小算出各部分的位置，基准是 1080p。下落面板在左边、中间或右边，太鼓条在上面或下面（设置里选，用户要求）；
 /// 面板占满太鼓条以外的整个高度。坐标是 IMGUI 的：原点在左上角。
 /// </summary>
 internal readonly struct OverlayLayout
 {
-    public OverlayLayout(Settings s)
+    /// <summary>直接按设置到位（不带过渡）。</summary>
+    /// <param name="keys">下落面板几条轨道（这一关按几键显示，<see cref="OverlayFrame.Keys"/>）。</param>
+    public OverlayLayout(Settings s, int keys = 4)
+        : this(s, keys, PanelPose.Target(s, keys))
     {
-        Scale = Screen.height / 1080f * Mathf.Clamp(s.UiScale, 0.5f, 2f);
+    }
+
+    /// <param name="pose">面板的宽度和位置（换位置、换键数的途中是过渡中的值，<see cref="PanelMotion.Pose"/>）。</param>
+    public OverlayLayout(Settings s, int keys, PanelPose pose)
+    {
+        Scale = ScaleOf(s);
+        Keys = keys;
+        Pose = pose;
         // 面板宽、太鼓条高取整到整数像素：边缘和游戏画面让出来的区域正好对齐，中间不留一列没人画的像素
         // （用户反馈「一直以来都漏画了几个像素」：小数宽度时摄像机视口取整，和面板之间空出一列）。
         // 轨道铺满整个面板，不再两侧各留 12 像素空边（同一次反馈：看着像轨道没画满）
-        PanelWidth = Mathf.Round(68 * Lanes.Count * Scale);
-        LaneWidth = PanelWidth / Lanes.Count;
+        PanelWidth = Mathf.Round(pose.Width);
+        LaneWidth = PanelWidth / keys;
+        Unit = LaneWidth / LaneBase(4); // 4K 时等于 Scale；换键数的途中跟着轨道宽变
         Padding = 0;
         TopHeight = s.ShowTaiko || s.ShowBpm ? Mathf.Round(128 * Scale) : 0;
         // 关掉太鼓条时横条整个收起（2026-11-18 用户），BPM 框只占四轨面板那一列的顶端（或底端）
         StripHeight = s.ShowTaiko ? TopHeight : 0;
         KeyBoxHeight = 64 * Scale;
-        LanesRight = s.LanesOnRight;
-        TaikoBottom = s.TaikoAtBottom;
-        PanelX = LanesRight ? Screen.width - PanelWidth : 0;
-        PanelY = TaikoBottom ? 0 : TopHeight;
+        LanesRight = pose.Right > 0.5f;
+        TaikoBottom = pose.Bottom > 0.5f;
+        PanelX = Mathf.Round((pose.Right + (pose.Center / 2)) * (Screen.width - PanelWidth));
+        PanelY = Mathf.Round((1 - pose.Bottom) * TopHeight);
         PanelHeight = Screen.height - TopHeight;
-        BarY = TaikoBottom ? Screen.height - TopHeight : 0;
+        BarY = Mathf.Round(pose.Bottom * (Screen.height - TopHeight));
         JudgeY = PanelY + PanelHeight - KeyBoxHeight - (16 * Scale);
     }
 
-    /// <summary>四轨面板在右边。</summary>
+    /// <summary>1080p 时为 1，再乘设置里的缩放。</summary>
+    public static float ScaleOf(Settings s) => Screen.height / 1080f * Mathf.Clamp(s.UiScale, 0.5f, 2f);
+
+    /// <summary>面板的宽度和位置（过渡中的值）。</summary>
+    public PanelPose Pose { get; }
+
+    /// <summary>
+    /// 太鼓条那一行里 BPM 框的左边：太鼓条开着时在面板那一侧（面板在中间时放左边），关着时在面板那一列的顶端（或底端）。
+    /// </summary>
+    public float BoxX(Settings s) => s.ShowTaiko ? Mathf.Round(Pose.Right * (Screen.width - PanelWidth)) : PanelX;
+
+    /// <summary>游戏画面左右让出多少（面板在中间时不让，盖在画面上）；lanes 是要让的面板宽。</summary>
+    public (float Left, float Right) SideMargins(float lanes) => (Mathf.Round(lanes * Pose.Left), Mathf.Round(lanes * Pose.Right));
+
+    /// <summary>
+    /// 1080p、缩放 1 时每条轨道多宽：4K 68、6K 56、8K 48（2026-11-22 用户：每轨稍窄、面板稍宽，6K 面板 336、8K 384）。
+    /// </summary>
+    public static float LaneBase(int keys) => keys switch
+    {
+        6 => 56,
+        8 => 48,
+        _ => 68,
+    };
+
+    /// <summary>几条轨道。</summary>
+    public int Keys { get; }
+
+    /// <summary>轨道里的东西（球、判定圈、按键框边距、键名字号）的缩放：轨道窄了跟着缩，4K 时等于 <see cref="Scale"/>。</summary>
+    public float Unit { get; }
+
+    /// <summary>下落面板在右边（过渡途中过了一半算）。</summary>
     public bool LanesRight { get; }
 
-    /// <summary>太鼓条在下面。</summary>
+    /// <summary>太鼓条在下面（过渡途中过了一半算）。</summary>
     public bool TaikoBottom { get; }
 
     /// <summary>四轨面板左上角和高度。</summary>

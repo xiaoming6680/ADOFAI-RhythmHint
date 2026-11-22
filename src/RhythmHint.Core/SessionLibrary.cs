@@ -27,6 +27,9 @@ public sealed class RecentSession
     /// <summary>recent 目录里的会话脚本（&lt;id&gt;.js）。</summary>
     public string Session { get; set; } = string.Empty;
 
+    /// <summary>几键（2026-11-22 加的：老的列表里没有，读成 4）。</summary>
+    public int Keys { get; set; } = CustomFingering.DefaultKeys;
+
     /// <summary>recent 目录里的音乐文件名；没有为空。</summary>
     public string Audio { get; set; } = string.Empty;
 
@@ -54,12 +57,16 @@ public static class SessionLibrary
 
     private const string IndexFile = "index.js";
     private const string IndexPrefix = "window.RHYTHMHINT_RECENT = ";
-    private static readonly Regex IdPattern = new("^[0-9]+-[0-9a-f]+$");
+    private static readonly Regex IdPattern = new("^[0-9]+-[0-9a-f]+(-[0-9]+k)?$");
     private static readonly Regex ExtensionPattern = new("^\\.[0-9a-z]{1,8}$");
     private static readonly Encoding Utf8 = new UTF8Encoding(false);
 
-    /// <summary>这一关在历史里的 Id：谱面指纹（只由数字、连字符和十六进制组成，可以直接当文件名）。</summary>
-    public static string IdOf(CustomFingering fingering) => CustomFingering.ChartPrint(fingering.Hits);
+    /// <summary>
+    /// 这一关在历史里的 Id：谱面指纹（只由数字、连字符和十六进制组成，可以直接当文件名）；不是 4 键的后面加「-6k」「-8k」
+    /// （同一张谱的 4K、6K 各留一份，编辑器的草稿也按它分开存，2026-11-22）。4 键的和以前一样，老草稿照样接得上。
+    /// </summary>
+    public static string IdOf(CustomFingering fingering) =>
+        CustomFingering.ChartPrint(fingering.Hits) + (fingering.Keys != CustomFingering.DefaultKeys ? $"-{fingering.Keys}k" : string.Empty);
 
     /// <summary>
     /// 这一关的音乐放在哪（相对编辑器目录，比如 recent/968-…-20261118-093000-123.ogg）。名字带时间：
@@ -120,6 +127,7 @@ public static class SessionLibrary
             Artist = session.Fingering.Artist,
             Charter = session.Fingering.Charter,
             Notes = session.Fingering.Notes.Count,
+            Keys = session.Fingering.Keys,
             Session = name,
             Audio = audio.StartsWith(FolderName + "/", StringComparison.Ordinal) ? audio.Substring(FolderName.Length + 1) : string.Empty,
             FileName = session.FileName,
@@ -175,6 +183,7 @@ public static class SessionLibrary
             ["artist"] = e.Artist,
             ["charter"] = e.Charter,
             ["notes"] = e.Notes,
+            ["keys"] = e.Keys,
             ["session"] = e.Session,
             ["audio"] = e.Audio,
             ["fileName"] = e.FileName,
@@ -237,6 +246,7 @@ public static class SessionLibrary
                     Artist = (string?)token["artist"] ?? string.Empty,
                     Charter = (string?)token["charter"] ?? string.Empty,
                     Notes = (int?)token["notes"] ?? 0,
+                    Keys = (int?)token["keys"] ?? CustomFingering.DefaultKeys,
                     Session = (string?)token["session"] ?? string.Empty,
                     Audio = (string?)token["audio"] ?? string.Empty,
                     FileName = (string?)token["fileName"] ?? string.Empty,

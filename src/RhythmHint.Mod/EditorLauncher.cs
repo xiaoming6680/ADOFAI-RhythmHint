@@ -14,8 +14,9 @@ namespace RhythmHint;
 /// <summary>Mod 正显示的这一关：编辑本关手序时交给编辑器的东西。</summary>
 internal sealed class LevelSnapshot
 {
-    public LevelSnapshot(List<TileHit> hits, FingeringResult fingering, LevelInfo info, List<BeatLine> beats, List<(double, double)> tempo)
+    public LevelSnapshot(List<TileHit> hits, FingeringResult fingering, LevelInfo info, List<BeatLine> beats, List<(double, double)> tempo, int tier)
     {
+        Tier = tier;
         Hits = hits;
         Fingering = fingering;
         Info = info;
@@ -24,6 +25,9 @@ internal sealed class LevelSnapshot
     }
 
     public List<TileHit> Hits { get; }
+
+    /// <summary>估算难度档位（1–60），0 表示估不出。</summary>
+    public int Tier { get; }
 
     public FingeringResult Fingering { get; }
 
@@ -69,39 +73,39 @@ internal static class EditorLauncher
 
         var watch = Stopwatch.StartNew();
         var settings = Main.Settings;
-        var info = snapshot.Info;
-        var fingering = CustomFingering.From(snapshot.Hits, snapshot.Fingering.Notes, settings.LeftHanded);
-        fingering.Song = info.Song;
-        fingering.Artist = info.Artist;
-        fingering.Charter = info.Charter;
-        var used = snapshot.Fingering.UsedFile.Length > 0 ? source.Get(snapshot.Fingering.UsedFile) : null;
-        if (used != null)
+        // 编辑器按这一关显示的键数打开（6K、8K 的轨道写进 4 键文件会被拒绝）；另外两种键数一起带上，编辑器里能切换（2026-11-22 用户）
+        var main = Keyed(snapshot, source, snapshot.Fingering);
+        List<PlannedNote> AutoFor(int keys) => NotePlanner.Plan(snapshot.Hits, settings.ToFingering(keys));
+        var variants = new List<SessionVariant>();
+        foreach (var keys in KeyLayout.Modes)
         {
-            // 作者、说明，旧版的谱面指纹（作者为更新版重新保存时，手序同时认得旧版和这一版），以后的版本加的字段（编辑器原样写回）
-            fingering.TakeDetailsFrom(used);
+            if (keys != main.Fingering.Keys)
+            {
+                variants.Add(Keyed(snapshot, source, source.ChooseFor(snapshot.Hits, AutoFor, settings, keys)));
+            }
         }
 
-        var labels = settings.KeyLabels.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-        var id = SessionLibrary.IdOf(fingering);
+        var id = main.Id;
         var session = new EditorSession
         {
             Id = id,
-            Fingering = fingering,
-            FromAuto = snapshot.Fingering.FromAuto,
-            UsedFile = snapshot.Fingering.UsedFile,
-            FileName = snapshot.Fingering.UsedFile.Length > 0 ? snapshot.Fingering.UsedFile : fingering.SuggestedFileName(),
+            Fingering = main.Fingering,
+            FromAuto = main.FromAuto,
+            UsedFile = main.UsedFile,
+            FileName = main.FileName,
             SaveFolder = FingeringSource.Inbox ?? FingeringSource.Folder,
             SaveStartIn = FingeringSource.Inbox != null ? "documents" : string.Empty,
             Language = Lang.Current,
             ModVersion = Main.Mod.Info.Version,
             RoundNotes = settings.RoundNotes,
-            KeyLabels = labels.Length == Lanes.Count ? labels : new[] { "D", "F", "J", "K" },
-            Standard = NotePlanner.Plan(snapshot.Hits, WithStyle(FingeringStyle.TimeReset)),
-            Alternate = NotePlanner.Plan(snapshot.Hits, WithStyle(FingeringStyle.ReviewPreferenceV1)),
+            KeyLabels = main.KeyLabels,
+            Standard = main.Standard,
+            Alternate = main.Alternate,
+            Variants = variants,
             Beats = snapshot.Beats,
             Tempo = snapshot.Tempo,
             Path = GameReader.ReadPath(level, snapshot.Hits),
-            Audio = ExportAudio(level, info, id),
+            Audio = ExportAudio(level, snapshot.Info, id),
             HitSound = ExportHitSound(level),
             Effects = ReadEffects(level),
         };
@@ -119,6 +123,41 @@ internal static class EditorLauncher
         return (audioFile.Length == 0
             ? Lang.M("已在浏览器中打开手序编辑器。没能带上这首歌的音乐，可以在编辑器里手动选择。")
             : Lang.M("已在浏览器中打开手序编辑器。"), true);
+    }
+
+    /// <summary>
+    /// 一种键数要交给编辑器的：这个键数的手序（专属手序或自动排键）、文件名、键位、两种自动排法。
+    /// 用上的手序键数和这一关显示的不一样（4K 手序放进 6K 里显示）时，编辑器另存一份这个键数的，不覆盖原来那份。
+    /// </summary>
+    private static SessionVariant Keyed(LevelSnapshot snapshot, FingeringSource source, FingeringResult result)
+    {
+        var settings = Main.Settings;
+        var info = snapshot.Info;
+        var keys = result.Keys;
+        var fingering = CustomFingering.From(snapshot.Hits, result.Notes, settings.LeftHanded, keys);
+        fingering.Song = info.Song;
+        fingering.Artist = info.Artist;
+        fingering.Charter = info.Charter;
+        var used = result.UsedFile.Length > 0 ? source.Get(result.UsedFile) : null;
+        if (used != null)
+        {
+            // 作者、说明，旧版的谱面指纹（作者为更新版重新保存时，手序同时认得旧版和这一版），以后的版本加的字段（编辑器原样写回）
+            fingering.TakeDetailsFrom(used);
+        }
+
+        var labels = settings.KeyLabelsFor(keys).Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        var usedFile = used != null && used.Keys == keys ? result.UsedFile : string.Empty;
+        return new SessionVariant
+        {
+            Id = SessionLibrary.IdOf(fingering),
+            Fingering = fingering,
+            FromAuto = result.FromAuto,
+            UsedFile = usedFile,
+            FileName = usedFile.Length > 0 ? usedFile : fingering.SuggestedFileName(),
+            KeyLabels = labels.Length == keys ? labels : KeyBindings.Split(new Settings().KeyLabelsFor(keys), keys),
+            Standard = NotePlanner.Plan(snapshot.Hits, WithStyle(FingeringStyle.TimeReset, keys)),
+            Alternate = NotePlanner.Plan(snapshot.Hits, WithStyle(FingeringStyle.ReviewPreferenceV1, keys)),
+        };
     }
 
     /// <summary>让轨道和镜头动起来的关卡事件（轨道预览按时间重放）；读不出来为 null，预览就是静止的轨道。</summary>
@@ -181,9 +220,9 @@ internal static class EditorLauncher
     }
 
     /// <summary>玩家现在的排键设置，只换排法（编辑器里两种排法对照）。</summary>
-    private static FingeringOptions WithStyle(FingeringStyle style)
+    private static FingeringOptions WithStyle(FingeringStyle style, int keys)
     {
-        var options = Main.Settings.ToFingering();
+        var options = Main.Settings.ToFingering(keys);
         options.Style = style;
         return options;
     }

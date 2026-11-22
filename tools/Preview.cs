@@ -7,6 +7,7 @@
 // 可选再给一张自己手排的参考谱：只用来对照「自动排键像不像自己的手法」，不会改变排键结果。
 // 用法：dotnet run tools/Preview.cs -- <关卡.adofai> [参考谱.pez/.json] [--from 秒] [--seconds 秒]
 //       [--reset 毫秒] [--focus 毫秒] [--jack 毫秒] [--chord 毫秒] [--no-roll] [--inner-roll] [--left-handed] [--chord-other-hand]   临时试排键参数
+//       [--keys 4|6|8]   键数（默认 4）
 //       [--export 文件.json]   导出砖块时间和节拍线，给 tools/layout-lab 网页用
 //       [--editor-session 目录] [--alternate]   给手序编辑器写 session.js（和游戏里「编辑本关手序」一样，离线近似：没有游戏音频采样）；
 //                                               --alternate 用交替优先排法，默认标准。比如写进 src/RhythmHint.Editor 后直接打开 index.html 看界面
@@ -17,13 +18,13 @@ using Newtonsoft.Json.Linq;
 using RhythmHint.Core;
 using RhythmHint.Reference;
 
-var valueOptions = new HashSet<string> { "--from", "--seconds", "--reset", "--focus", "--jack", "--chord", "--export", "--editor-session" };
+var valueOptions = new HashSet<string> { "--from", "--seconds", "--reset", "--focus", "--jack", "--chord", "--keys", "--export", "--editor-session" };
 var files = args.Where((a, i) => !a.StartsWith("--", StringComparison.Ordinal)
     && (i == 0 || !valueOptions.Contains(args[i - 1]))).ToList();
 double from = ReadOption("--from", 0), span = ReadOption("--seconds", 6);
 if (files.Count == 0)
 {
-    Console.Error.WriteLine("用法：dotnet run tools/Preview.cs -- <关卡.adofai> [参考谱] [--from 秒] [--seconds 秒] [--reset|--focus|--jack|--chord 毫秒] [--no-roll] [--inner-roll] [--left-handed] [--chord-other-hand] [--alternate] [--editor-session 目录]");
+    Console.Error.WriteLine("用法：dotnet run tools/Preview.cs -- <关卡.adofai> [参考谱] [--from 秒] [--seconds 秒] [--reset|--focus|--jack|--chord 毫秒] [--no-roll] [--inner-roll] [--left-handed] [--chord-other-hand] [--alternate] [--keys 4|6|8] [--editor-session 目录]");
     return 2;
 }
 
@@ -56,6 +57,14 @@ if (sessionIndex >= 0 && sessionIndex + 1 < args.Length)
 }
 options.JackWindow = ReadOption("--jack", options.JackWindow * 1000) / 1000;
 options.ChordWindow = ReadOption("--chord", options.ChordWindow * 1000) / 1000;
+options.Keys = (int)ReadOption("--keys", 4);
+if (!KeyLayout.IsMode(options.Keys))
+{
+    Console.Error.WriteLine($"键数只能是 4、6、8：{options.Keys}");
+    return 2;
+}
+
+var layout = KeyLayout.Of(options.Keys);
 
 var floorPath = new List<PathPoint>();
 List<TileHit> tiles;
@@ -106,16 +115,21 @@ if (labOutput != null)
     Console.WriteLine($"已导出 {tiles.Count} 块砖、{labBeats.Count} 条节拍线到 {labOutput}");
 }
 var notes = NotePlanner.Plan(tiles, options);
+static FingeringOptions With(FingeringOptions o, int keys) => new()
+{
+    Style = o.Style, LeftHanded = o.LeftHanded, ChordsOnOtherHand = o.ChordsOnOtherHand, UseRoll = o.UseRoll, OuterRoll = o.OuterRoll,
+    ResetWindow = o.ResetWindow, ChordFocusWindow = o.ChordFocusWindow, JackWindow = o.JackWindow, ChordAngle = o.ChordAngle, Keys = keys,
+};
 if (sessionFolder != null)
 {
     // 和游戏里「编辑本关手序」交给编辑器的一样，只是离线近似：轨道形状按关卡方向和 PositionTrack 算、没有波形；歌曲文件在关卡旁边就一起拷过去
-    var fingering = CustomFingering.From(tiles, notes, options.LeftHanded);
+    var fingering = CustomFingering.From(tiles, notes, options.LeftHanded, options.Keys);
     var hitTiles = new HashSet<int>(tiles.Select(t => t.TileIndex));
     fingering.Song = (string?)levelSettings["song"] ?? Path.GetFileNameWithoutExtension(files[0]);
     fingering.Artist = (string?)levelSettings["artist"] ?? "";
     fingering.Charter = (string?)levelSettings["author"] ?? "";
-    var standard = new FingeringOptions { Style = FingeringStyle.TimeReset, LeftHanded = options.LeftHanded, ChordsOnOtherHand = options.ChordsOnOtherHand };
-    var alternate = new FingeringOptions { Style = FingeringStyle.ReviewPreferenceV1, LeftHanded = options.LeftHanded, ChordsOnOtherHand = options.ChordsOnOtherHand };
+    var standard = new FingeringOptions { Style = FingeringStyle.TimeReset, LeftHanded = options.LeftHanded, ChordsOnOtherHand = options.ChordsOnOtherHand, Keys = options.Keys };
+    var alternate = new FingeringOptions { Style = FingeringStyle.ReviewPreferenceV1, LeftHanded = options.LeftHanded, ChordsOnOtherHand = options.ChordsOnOtherHand, Keys = options.Keys };
     Directory.CreateDirectory(sessionFolder);
     var id = SessionLibrary.IdOf(fingering);
     var pitch = (double?)levelSettings["pitch"] ?? 100;
@@ -134,8 +148,28 @@ if (sessionFolder != null)
 
     var effects = TrackEffects.Extract(levelDocument);
     TrackEffects.AddBeats(effects, speeds, crotchet);
+    // 另外两种键数（编辑器里切换），都是自动排键
+    var variants = new List<SessionVariant>();
+    foreach (var keys in KeyLayout.Modes.Where(k => k != options.Keys))
+    {
+        var keyed = CustomFingering.From(tiles, NotePlanner.Plan(tiles, With(options, keys)), options.LeftHanded, keys);
+        keyed.Song = fingering.Song;
+        keyed.Artist = fingering.Artist;
+        keyed.Charter = fingering.Charter;
+        variants.Add(new SessionVariant
+        {
+            Id = SessionLibrary.IdOf(keyed),
+            Fingering = keyed,
+            FileName = keyed.SuggestedFileName(),
+            KeyLabels = KeyBindings.Split(new RhythmHint.Settings().KeyLabelsFor(keys), keys),
+            Standard = NotePlanner.Plan(tiles, With(standard, keys)),
+            Alternate = NotePlanner.Plan(tiles, With(alternate, keys)),
+        });
+    }
+
     var session = new EditorSession
     {
+        Variants = variants,
         Id = id,
         Fingering = fingering,
         FileName = fingering.SuggestedFileName(),
@@ -153,12 +187,13 @@ if (sessionFolder != null)
     Console.WriteLine($"已写好编辑器数据：{Path.Combine(sessionFolder, "session.js")}（{notes.Count} 个音符，音乐：{(audio.File.Length == 0 ? "无" : audio.File)}）");
 }
 var doubles = notes.Count(n => n.Lanes.Count == 2);
-var rightDoubles = notes.Count(n => n.Lanes.Count == 2 && n.PairHand == 1);
-var laneUse = Enumerable.Range(0, Lanes.Count).Select(l => notes.Count(n => n.Lanes.ContainsKey(l)));
+var rightDoubles = notes.Count(n => n.Lanes.Count == 2 && PairHand(n) == 1);
+var laneUse = Enumerable.Range(0, layout.Count).Select(l => notes.Count(n => n.Lanes.ContainsKey(l)));
 var byAngle = tiles.Exists(t => !double.IsNaN(t.Angle));
 Console.WriteLine($"提示 {notes.Count} 个，双押 {doubles} 个（右手 {rightDoubles}，左手 {doubles - rightDoubles}），"
-    + $"三押 {notes.Count(n => n.Lanes.Count == 3)} 个，四押 {notes.Count(n => n.Lanes.Count == 4)} 个（{(byAngle ? "按转角" : "按时间")}判断），"
-    + $"各轨使用次数 [{string.Join(", ", laneUse)}]");
+    + $"三押 {notes.Count(n => n.Lanes.Count == 3)} 个，四押 {notes.Count(n => n.Lanes.Count == 4)} 个，"
+    + $"五押以上 {notes.Count(n => n.Lanes.Count > 4)} 个（{(byAngle ? "按转角" : "按时间")}判断），"
+    + $"{layout.Count} 键，各轨使用次数 [{string.Join(", ", laneUse)}]");
 var tooFast = notes.Zip(notes.Skip(1), (a, b) => (a, b)).Count(p => p.a.IsChord && p.b.IsChord && p.b.Time - p.a.Time < options.JackWindow);
 Console.WriteLine($"两个多押挨得太近、同一只手来不及（只能左右手轮流）：{tooFast} 处");
 
@@ -181,7 +216,9 @@ var lone = LayoutStats.LoneNotes(notes, LayoutStats.DefaultLinkGap);
 Console.WriteLine($"孤立音符（前后都隔 2 条以上轨道）：{lone.Count} 个{(lone.Count == 0 ? "" : "，例如 " + string.Join("、", lone.Take(5).Select(n => $"{n.Time:F2}s")))}");
 
 // 手序：快的地方同一只手连着按两个单押（轮指以外不该有）；停顿之后从哪只手起手（应该总是主手：默认右手，--left-handed 时左手）
-int HandOf(PlannedNote n) => n.IsChord ? n.PairHand : Lanes.HandOf(n.Lanes.Keys.First()); // 多押看按两个键的那只手
+// 多押看按两个键的那只手（和 PlannedNote.PairHand 一样，按这个键数分手）
+int PairHand(PlannedNote n) => n.Lanes.Keys.Count(l => layout.HandOf(l) == 1) * 2 >= n.Lanes.Count ? 1 : 0;
+int HandOf(PlannedNote n) => n.IsChord ? PairHand(n) : layout.HandOf(n.Lanes.Keys.First());
 var mainHand = options.LeftHanded ? 0 : 1;
 int fastPairs = 0, sameHand = 0, restarts = 0, mainStarts = 0;
 for (var i = 1; i < notes.Count; i++)
@@ -201,6 +238,25 @@ for (var i = 1; i < notes.Count; i++)
 
 Console.WriteLine($"手序：主手重置间隔以内的相邻单押 {fastPairs} 对，同一只手 {sameHand} 对（轮指）；停顿之后{(options.LeftHanded ? "左" : "右")}手（主手）起手 {mainStarts}/{restarts}");
 
+// 同一根手指隔不到主手重置间隔又按（不管中间按了别的）：6K、8K 多出来的手指就是为了减少它（越快用的手指越多）
+var lastPress = new Dictionary<int, double>();
+int quickRepeats = 0, presses = 0;
+foreach (var n in notes)
+{
+    foreach (var lane in n.Lanes.Keys)
+    {
+        presses++;
+        if (lastPress.TryGetValue(lane, out var before) && n.Time - before <= options.ResetWindow)
+        {
+            quickRepeats++;
+        }
+
+        lastPress[lane] = n.Time;
+    }
+}
+
+Console.WriteLine($"同一根手指隔不到 {options.ResetWindow * 1000:0} ms 又按：{quickRepeats}/{presses}（{(presses == 0 ? 0 : quickRepeats * 100.0 / presses):F1}%）");
+
 List<ChartGroup>? reference = null;
 AlignResult? align = null;
 if (files.Count > 1)
@@ -214,7 +270,8 @@ if (files.Count > 1)
 }
 
 Console.WriteLine();
-Console.WriteLine($"  时间      | 自动 0123 |{(reference is null ? "" : " 参考 0123 |")}  ({from:F1}s 起 {span:F1}s；O 单押，# 多押，= 带长按)");
+var laneDigits = string.Concat(Enumerable.Range(0, layout.Count));
+Console.WriteLine($"  时间      | 自动 {laneDigits} |{(reference is null ? "" : " 参考 0123 |")}  ({from:F1}s 起 {span:F1}s；O 单押，# 多押，= 带长按)");
 var groupOfTile = new Dictionary<int, int>();
 for (var i = 0; i < tiles.Count && align is not null; i++)
 {
@@ -223,7 +280,7 @@ for (var i = 0; i < tiles.Count && align is not null; i++)
 
 foreach (var n in notes.Where(n => n.Time >= from && n.Time < from + span))
 {
-    var row = string.Concat(Enumerable.Range(0, Lanes.Count).Select(l =>
+    var row = string.Concat(Enumerable.Range(0, layout.Count).Select(l =>
         !n.Lanes.TryGetValue(l, out var hold) ? "." : hold > 0 ? "=" : n.IsChord ? "#" : "O"));
     var refRow = "";
     if (reference is not null)

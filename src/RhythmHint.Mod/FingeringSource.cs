@@ -53,6 +53,12 @@ internal sealed class FingeringResult
 
     /// <summary>这一关用哪份（或都不用）是玩家自己选的。</summary>
     public bool ChosenByPlayer { get; }
+
+    /// <summary>设置给这一关定的键数（自动选键数时用上的专属手序可能改掉它，最后按 <see cref="Keys"/>）。</summary>
+    public KeyCountChoice KeyChoice { get; set; } = new(4, KeyCountReason.Manual);
+
+    /// <summary><see cref="Notes"/> 是几键的：用上的专属手序在自动模式下是几键就几键，否则是设置定的。</summary>
+    public int Keys { get; set; } = 4;
 }
 
 /// <summary>
@@ -234,32 +240,59 @@ internal sealed class FingeringSource
     }
 
     /// <summary>给这一关挑手序。没开专属手序、没有对得上的文件时用自动排键。</summary>
-    public FingeringResult Choose(List<TileHit> hits, List<PlannedNote> auto, Settings settings, LevelInfo info)
+    /// <param name="autoFor">按几键自动排的音符（对不上的地方用它补）。</param>
+    /// <param name="keyChoice">设置给这一关定的键数；自动模式下用上的手序是 4、6、8 键时按手序的。</param>
+    public FingeringResult Choose(List<TileHit> hits, Func<int, List<PlannedNote>> autoFor, Settings settings, LevelInfo info, KeyCountChoice keyChoice)
     {
         if (!settings.UseCustomFingering)
         {
-            return new FingeringResult(auto, new List<bool>(), string.Empty, null, Lang.M("专属手序已关闭，使用自动排键。"), Message.Empty);
+            return Compute(hits, autoFor, settings, keyChoice, log: true);
         }
 
+        // 谱面指纹不看双押砖要按几下，游戏设置改了（只按一下 / 照常）也要重新套用：补键、减键跟着变；估算难度变了键数可能跟着变
         var chart = CustomFingering.ChartPrint(hits);
-        var chosen = ChosenFor(settings, chart);
-        // 谱面指纹不看双押砖要按几下，游戏设置改了（只按一下 / 照常）也要重新套用：补键、减键跟着变
-        var key = $"{Signature()}/{settings.FingeringKey}/{chart}/{chosen ?? "-"}/{FloorHits.TapsKey(hits)}";
+        var key = $"{Signature()}/{settings.FingeringKey}/{chart}/{ChosenFor(settings, chart) ?? "-"}/{FloorHits.TapsKey(hits)}/{keyChoice}";
         if (key == _lastKey && _last != null)
         {
             return _last;
         }
 
+        _last = Compute(hits, autoFor, settings, keyChoice, log: true);
+        _lastKey = key;
+        return _last;
+    }
+
+    /// <summary>
+    /// 这一关换成 keys 键时用哪份手序（编辑器里切换键数用，2026-11-22）：和游戏里手动选这个键数时一样挑，
+    /// 不动游戏正在用的结果（不进缓存、不写日志）。
+    /// </summary>
+    public FingeringResult ChooseFor(List<TileHit> hits, Func<int, List<PlannedNote>> autoFor, Settings settings, int keys) =>
+        Compute(hits, autoFor, settings, new KeyCountChoice(keys, KeyCountReason.Manual), log: false);
+
+    private FingeringResult Compute(List<TileHit> hits, Func<int, List<PlannedNote>> autoFor, Settings settings, KeyCountChoice keyChoice, bool log)
+    {
+        var auto = autoFor(keyChoice.Keys);
+        if (!settings.UseCustomFingering)
+        {
+            return new FingeringResult(auto, new List<bool>(), string.Empty, null, Lang.M("专属手序已关闭，使用自动排键。"), Message.Empty)
+            {
+                KeyChoice = keyChoice,
+                Keys = keyChoice.Keys,
+            };
+        }
+
+        var chart = CustomFingering.ChartPrint(hits);
+        var chosen = ChosenFor(settings, chart);
         var candidates = Load(out var broken);
-        var choice = FingeringMatcher.Choose(candidates, hits, auto, settings.LeftHanded, chosen);
-        foreach (var merge in choice.Merged)
+        var choice = FingeringMatcher.Choose(candidates, hits, k => autoFor(k), settings.LeftHanded, chosen, keyChoice.Keys, keyChoice.FollowFile);
+        foreach (var merge in log ? choice.Merged : new List<FingeringMerge>())
         {
             Main.Mod.Logger.Log(merge.SameContent
                 ? $"专属手序：{merge.Dropped} 和 {merge.Kept} 内容一样，当成一份（用 {merge.Kept}）"
                 : $"专属手序：{merge.Dropped} 和 {merge.Kept} 是同一位作者给这一版谱面存的，用较新的 {merge.Kept}");
         }
 
-        var brokenNote = Notes(broken, choice.OtherKeys);
+        var brokenNote = Notes(broken, choice.OtherKeys, keyChoice.Keys);
         var list = choice.Candidates.ConvertAll(c => (c.Candidate.Name, c.MatchedHits, c.TotalHits));
         var byPlayer = choice.Reason == FingeringReason.Chosen;
         FingeringResult result;
@@ -273,14 +306,21 @@ internal sealed class FingeringSource
             var caption = m.FallbackNotes == 0 ? Message.Empty
                 : Lang.M("专属手序有 {0} 处和这一版谱面对不上，已用自动排键补上", m.FallbackSections);
             result = new FingeringResult(m.Notes, m.FromAuto, choice.Used.Name, choice.Used.File, status, caption, chart, list, byPlayer);
-            Main.Mod.Logger.Log($"专属手序：{choice.Used.Name}（{choice.Reason}），对上 {m.MatchedHits}/{m.TotalHits} 块砖，自动补 {m.FallbackNotes} 个音符（{m.FallbackSections} 处）");
+            result.Keys = m.Keys;
+            if (log)
+            {
+                Main.Mod.Logger.Log($"专属手序：{choice.Used.Name}（{choice.Reason}，{choice.Used.File.Keys} 键，按 {m.Keys} 键显示），对上 {m.MatchedHits}/{m.TotalHits} 块砖，自动补 {m.FallbackNotes} 个音符（{m.FallbackSections} 处）");
+            }
         }
         else if (choice.Reason == FingeringReason.Unsure)
         {
             result = new FingeringResult(auto, new List<bool>(), string.Empty, null,
                 Lang.M("有 {0} 份专属手序像这一关，但不能确定是哪一份，暂用自动排键。请在下面选择要用的手序。{1}", list.Count, brokenNote),
                 Lang.M("有专属手序像这一关但不能确定，请在 F8 → 专属手序里选择"), chart, list, false);
-            Main.Mod.Logger.Log("专属手序：分不清，候选 " + string.Join("、", list.ConvertAll(c => $"{c.Name} {c.MatchedHits}/{c.TotalHits}")));
+            if (log)
+            {
+                Main.Mod.Logger.Log("专属手序：分不清，候选 " + string.Join("、", list.ConvertAll(c => $"{c.Name} {c.MatchedHits}/{c.TotalHits}")));
+            }
         }
         else if (byPlayer)
         {
@@ -293,22 +333,27 @@ internal sealed class FingeringSource
                 Lang.M("本关没有专属手序，使用自动排键。{0}", brokenNote), Message.Empty, chart, list, false);
         }
 
-        _lastKey = key;
-        _last = result;
+        result.KeyChoice = keyChoice;
+        if (choice.Match == null)
+        {
+            result.Keys = keyChoice.Keys;
+        }
+
         return result;
     }
 
     /// <summary>
-    /// 状态后面补的说明：读不了的文件；像这一关、但键数和 Mod 不同的手序（以后的六键、八键文件，现在不套用，
-    /// 2026-11-19 评审 A：原来悄悄过滤掉，玩家不知道为什么没用上）。
+    /// 状态后面补的说明：读不了的文件；像这一关、但键数比这一关显示的多（或是奇数键）的手序：不套用
+    /// （2026-11-19 评审 A：原来悄悄过滤掉，玩家不知道为什么没用上）。
     /// </summary>
-    private static Message Notes(List<string> broken, List<FingeringCandidate> otherKeys)
+    /// <param name="shown">这一关按几键显示。</param>
+    private static Message Notes(List<string> broken, List<FingeringCandidate> otherKeys, int shown)
     {
         var keys = otherKeys.Count switch
         {
             0 => Message.Empty,
-            1 => Lang.M("\n{0} 是 {1} 键手序，当前版本只支持 {2} 键，未使用。", otherKeys[0].Name, otherKeys[0].File.Keys, Lanes.Count),
-            _ => Lang.M("\n有 {0} 份像这一关的手序不是 {1} 键，当前版本不支持，未使用：{2}", otherKeys.Count, Lanes.Count,
+            1 => Lang.M("\n{0} 是 {1} 键手序，这一关按 {2} 键显示，未使用。", otherKeys[0].Name, otherKeys[0].File.Keys, shown),
+            _ => Lang.M("\n有 {0} 份像这一关的手序比 {1} 键多，未使用：{2}", otherKeys.Count, shown,
                 NameList(otherKeys.ConvertAll(c => c.Name), 0, otherKeys.Count)),
         };
         if (broken.Count == 0)
@@ -485,9 +530,9 @@ internal sealed class FingeringSource
         try
         {
             var file = CustomFingering.Parse(File.ReadAllText(info.FullName, Encoding.UTF8));
-            if (file.Keys != Lanes.Count)
+            if (!KeyLayout.IsSupported(file.Keys) || file.Keys > 8)
             {
-                Main.Mod.Logger.Log($"手序文件 {info.Name} 是 {file.Keys} 键手序，这个版本只支持 {Lanes.Count} 键，不套用（进到像它的那一关时状态里会说明）");
+                Main.Mod.Logger.Log($"手序文件 {info.Name} 是 {file.Keys} 键手序，这个版本只能显示 4、6、8 键（奇数键、8 键以上不套用，进到像它的那一关时状态里会说明）");
             }
 
             if (file.DroppedFields.Count > 0)

@@ -13,6 +13,12 @@ public sealed class FingeringOptions
     /// <summary>默认使用时间重置法；审核偏好方式不替换默认排法。</summary>
     public FingeringStyle Style { get; set; } = FingeringStyle.TimeReset;
 
+    /// <summary>
+    /// 键数：4（D F J K）、6（S D F J K L）、8（A S D F J K L ;）。6K、8K 先按 4K 排，放到中间四个键上，
+    /// 只有快到一根手指隔不到 ResetWindow 就得再按的连打才用上外侧的无名指、小指（2026-11-22 用户：越快用的手指越多）。
+    /// </summary>
+    public int Keys { get; set; } = 4;
+
     /// <summary>审核偏好短串改为食指交互的最小间隔（秒）。更快的串保留轮指。</summary>
     public double ReviewShortMinGap { get; set; } = 0.060;
 

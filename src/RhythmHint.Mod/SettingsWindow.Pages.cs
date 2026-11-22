@@ -33,7 +33,7 @@ internal sealed partial class SettingsWindow
         var row = _ui.Take(64);
         var items = new (string Icon, string Label, bool Value, string? Tag)[]
         {
-            ("lanes", Lang.T("四轨下落面板"), s.ShowLanes, null), ("drum", Lang.T("太鼓条"), s.ShowTaiko, null),
+            ("lanes", Lang.T("下落面板"), s.ShowLanes, null), ("drum", Lang.T("太鼓条"), s.ShowTaiko, null),
             ("gauge", Lang.T("BPM 与剩余时间"), s.ShowBpm, null), ("medal", Lang.T("估算难度"), s.ShowDifficulty, Lang.T("试验性")),
         };
         var w = (row.width - (Ui.Pad * 2) - 30) / 4;
@@ -59,7 +59,7 @@ internal sealed partial class SettingsWindow
     private void Hero()
     {
         var title = Lang.T("欢迎使用全节奏提示");
-        var text = Lang.T("四轨下落面板与太鼓条的样式、位置和排键方式都可以按自己的习惯调整；修改即时生效，可在后方演示中直接查看。");
+        var text = Lang.T("下落面板与太鼓条的样式、位置和排键方式都可以按自己的习惯调整；修改即时生效，可在后方演示中直接查看。");
         var textW = _ui.Width - 200;
         var th = WrappedHeight(text, 14, textW);
         var r = _ui.Take(Mathf.Max(118, 70 + th));
@@ -257,22 +257,25 @@ internal sealed partial class SettingsWindow
 
         // 位置：左边一张屏幕示意图（跟着选择动），右边两个选择
         _ui.BeginCard("layout", "layout", Lang.T("位置"));
-        var lanes = (Lang.T("左边"), Lang.T("右边"));
+        var lanes = new[] { Lang.T("左边"), Lang.T("中间"), Lang.T("右边") };
         var taiko = (Lang.T("上面"), Lang.T("下面"));
-        var hint = Lang.T("太鼓条那一行里，BPM 与剩余时间放在四轨面板那一侧；游戏画面让到剩下的区域。");
+        var hint = Lang.T("太鼓条那一行里，BPM 与剩余时间放在下落面板那一侧；游戏画面让到剩下的区域。面板在中间时盖在游戏画面上。");
         var area = _ui.Take(214);
         var screen = new Rect(area.x + Ui.Pad, area.y + 6, 340, 191);
         SettingsArt.ScreenLayout(screen, s);
         var cx = screen.xMax + 24;
         var cw = area.xMax - Ui.Pad - cx;
-        s.LanesOnRight = LayoutChoice("lanesSide", new Rect(cx, area.y + 8, cw, 36), Lang.T("四轨面板"), s.LanesOnRight, lanes);
-        s.TaikoAtBottom = LayoutChoice("taikoSide", new Rect(cx, area.y + 54, cw, 36), Lang.T("太鼓条"), s.TaikoAtBottom, taiko);
+        // 左边 / 中间 / 右边（2026-11-22 用户加中间）：中间存在 LanesInCenter，1.3.x 不认它、照 LanesOnRight 放
+        var side = LayoutChoice("lanesSide", new Rect(cx, area.y + 8, cw, 36), Lang.T("下落面板"), s.LanesInCenter ? 1 : s.LanesOnRight ? 2 : 0, lanes);
+        s.LanesInCenter = side == 1;
+        s.LanesOnRight = side == 2;
+        s.TaikoAtBottom = LayoutChoice("taikoSide", new Rect(cx, area.y + 54, cw, 36), Lang.T("太鼓条"), s.TaikoAtBottom ? 1 : 0, new[] { taiko.Item1, taiko.Item2 }) == 1;
         Label(new Rect(cx, area.y + 104, cw, 72), hint, 13, Text3, wrap: true, anchor: TextAnchor.UpperLeft);
         s.ShrinkGameView = _ui.Switch("shrink", "monitor", Lang.T("自适应游戏画幅"), Lang.T("面板显示时，游戏画面和界面文字缩到面板以外的区域。"), s.ShrinkGameView);
         _ui.EndCard();
 
         _ui.BeginCard("show", "sliders", Lang.T("显示内容"));
-        s.ShowLanes = _ui.Switch("lanes", "lanes", Lang.T("四轨下落面板"), null, s.ShowLanes);
+        s.ShowLanes = _ui.Switch("lanes", "lanes", Lang.T("下落面板"), null, s.ShowLanes);
         s.ShowTaiko = _ui.Switch("taiko", "drum", Lang.T("太鼓条"), null, s.ShowTaiko);
         s.ShowChordCount = _ui.Switch("chordCount", "chord", Lang.T("多押数字"), Lang.T("太鼓条上的三押、四押音符中间显示 3、4。"), s.ShowChordCount);
         s.ShowBpm = _ui.Switch("bpm", "gauge", Lang.T("BPM 与剩余时间"), null, s.ShowBpm);
@@ -281,7 +284,8 @@ internal sealed partial class SettingsWindow
             Lang.T("在 BPM 框左侧显示按本关砖块估算的 TUF 难度档位，仅供参考，并非 TUF 官方评级。"), s.ShowDifficulty, Lang.T("试验性"));
         _ui.EndCard();
 
-        _ui.BeginCard("keys", "keyboard", Lang.T("按键框"));
+        // 用户：玩家会以为在这里切键数，说明这里只设键位，游戏里用几键在排键页设
+        _ui.BeginCard("keys", "keyboard", Lang.T("按键框"), note: Lang.T("此处仅设置各键数的按键；游戏中使用几键请在「排键」页设置。"));
         _keyPicker.Draw(_ui, s);
         _ui.EndCard();
 
@@ -300,13 +304,12 @@ internal sealed partial class SettingsWindow
         }, null);
     }
 
-    /// <summary>位置那两行：名字在左、分段选择在右。</summary>
-    private bool LayoutChoice(string id, Rect r, string label, bool value, (string No, string Yes) options)
+    /// <summary>位置那两行：名字在左、分段选择在右，返回选中第几个。</summary>
+    private int LayoutChoice(string id, Rect r, string label, int value, string[] labels)
     {
-        var labels = new[] { options.No, options.Yes };
         var w = Ui.SegmentedWidth(labels);
         Label(new Rect(r.x, r.y, r.width - w - 8, r.height), Ellipsize(label, 15, r.width - w - 8), 15, Text);
-        return _ui.Segmented(id, new Rect(r.xMax - w, r.y, w, r.height), labels, value ? 1 : 0) == 1;
+        return _ui.Segmented(id, new Rect(r.xMax - w, r.y, w, r.height), labels, value);
     }
 
     // ---------- 校准 ----------

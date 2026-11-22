@@ -30,7 +30,7 @@ function layoutContext(html, planner) {
 const fields = { ChordWindow:'chordWindow', ChordAngle:'chordAngle', ChordMaxGap:'chordGap', ResetWindow:'reset',
   ChordFocusWindow:'focus', JackWindow:'jack', UseRoll:'roll', OuterRoll:'outer', LeftHanded:'left', ChordsOnOtherHand:'chordOther',
   Style:'style', ReviewShortMinGap:'reviewShortMinGap', ReviewShortMaxGap:'reviewShortMaxGap', ReviewShortMinNotes:'reviewShortMinNotes',
-  ReviewShortMaxNotes:'reviewShortMaxNotes', ReviewTimingTolerance:'reviewTimingTolerance' };
+  ReviewShortMaxNotes:'reviewShortMaxNotes', ReviewTimingTolerance:'reviewTimingTolerance', Keys:'keys' };
 
 test('current C# planner, browser planner and layout-lab agree per note across synthetic boundaries and seeded random charts', () => {
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'rhythmhint-parity-'));
@@ -39,7 +39,7 @@ test('current C# planner, browser planner and layout-lab agree per note across s
     run(process.env.DOTNET_HOST_PATH || 'dotnet', ['run', path.join(root, 'tools/ExportPlannerParity.cs'), '--', output]);
     const cases = JSON.parse(fs.readFileSync(output, 'utf8'));
     const layout = layoutContext(fs.readFileSync(path.join(root, 'tools/layout-lab.html'), 'utf8'), P);
-    let count = 0, three = 0, four = 0;
+    let count = 0, three = 0, four = 0, wide = 0, outer = 0;
     for (const chart of cases) {
       assert.equal(chart.algorithm, P.algorithmFor(chart.options));
       const actual = P.plan(chart.sourceHits, chart.options);
@@ -54,8 +54,11 @@ test('current C# planner, browser planner and layout-lab agree per note across s
       count += chart.notes.length;
       three += chart.notes.filter(n => n.lanes.length === 3).length;
       four += chart.notes.filter(n => n.lanes.length === 4).length;
+      // 6K / 8K：5–8 键的双押砖、用到 8K 最外侧那一轨（右手小指）的多指轮
+      wide += chart.notes.filter(n => n.lanes.length > 4).length;
+      outer += chart.notes.filter(n => n.lanes.length === 1 && n.lanes[0].lane === 7).length;
     }
-    assert.ok(cases.length > 600 && count > 20000 && three > 0 && four > 0);
+    assert.ok(cases.length > 600 && count > 20000 && three > 0 && four > 0 && wide > 0 && outer > 0);
     // A portable output outside the repository must contain the same shared planner.
     const source = path.join(temporary, 'input.json'), portable = path.join(temporary, 'lab.html');
     fs.writeFileSync(source, JSON.stringify({ name: '</script> synthetic', tiles: [], beats: [] }));

@@ -18,13 +18,13 @@ void Add(string name, List<TileHit> hits, FingeringOptions options)
     cases.Add(new
     {
         name,
-        algorithm = "NotePlanner/" + BaselineRevision + "/" + options.Style,
+        algorithm = "NotePlanner/" + BaselineRevision + "/" + options.Style + (options.Keys != 4 ? $"/{options.Keys}K" : ""),
         options = new
         {
             options.ChordWindow, options.ChordAngle, options.ChordMaxGap, options.ResetWindow, options.ChordFocusWindow,
             options.JackWindow, options.UseRoll, options.OuterRoll, options.LeftHanded, options.ChordsOnOtherHand,
             Style = options.Style.ToString(), options.ReviewShortMinGap, options.ReviewShortMaxGap,
-            options.ReviewShortMinNotes, options.ReviewShortMaxNotes, options.ReviewTimingTolerance,
+            options.ReviewShortMinNotes, options.ReviewShortMaxNotes, options.ReviewTimingTolerance, options.Keys,
         },
         notes = NotePlanner.Plan(hits, options).Select(n => new
         {
@@ -121,6 +121,48 @@ foreach (var style in Enum.GetValues<FingeringStyle>())
         LeftHanded = true, ChordsOnOtherHand = true, ReviewShortMinGap = .055, ReviewShortMaxGap = .09,
         ReviewShortMinNotes = 2, ReviewShortMaxNotes = 7, ReviewTimingTolerance = .004 };
     foreach (var count in new[] { 2, 3, 4, 5, 6, 7, 8 }) Add($"custom-{count}-{style}", Run(.06666666666666667, count), custom);
+}
+// 6K、8K：R/4（32.5 ms）、R/6 两侧的均匀连打（转角正常，读不到转角时 35 ms 以内会合成多押），快慢混着的随机谱、多押、长按、要按 8 下的双押砖
+var manyGaps = new[] { .0325 - 2e-6, .0325, .0325 + 2e-6, .13 / 6 - 2e-6, .13 / 6, .13 / 6 + 2e-6, .012, .02, .025, .05 };
+foreach (var keys in new[] { 6, 8 })
+{
+    foreach (var style in Enum.GetValues<FingeringStyle>())
+    {
+        foreach (var gap in manyGaps)
+            foreach (var count in new[] { 4, 5, 6, 7, 8, 13, 24 })
+                Add($"keys{keys}-gap-{gap:R}-{count}-{style}", Run(gap, count).Select(h => h with { Angle = 180 }).ToList(), new() { Style = style, Keys = keys });
+        for (var mask = 0; mask < 16; mask++)
+        {
+            var options = new FingeringOptions { Style = style, Keys = keys, LeftHanded = (mask & 1) != 0, ChordsOnOtherHand = (mask & 2) != 0,
+                UseRoll = (mask & 4) != 0, OuterRoll = (mask & 8) != 0 };
+            foreach (var holds in new[] { false, true })
+            {
+                var rng = new Random(2211 + mask + keys);
+                var hits = new List<TileHit>(); var time = -.2; var gap = manyGaps[0];
+                for (var i = 0; i < 400; i++)
+                {
+                    if (rng.Next(6) == 0) gap = rng.Next(2) == 0 ? manyGaps[rng.Next(manyGaps.Length)] : thresholdGaps[rng.Next(thresholdGaps.Length)];
+                    time += gap;
+                    var angle = rng.Next(5) == 0 ? double.NaN : new[] { 15, 180, 180, 180, 360 }[rng.Next(5)];
+                    var taps = rng.Next(40) == 0 ? rng.Next(2, 9) : 1;
+                    hits.Add(new TileHit(i + 1, time, holds && i % 13 == 0 ? gap : 0, angle, taps, taps > 1));
+                }
+                Add($"keys{keys}-random-{mask}-{holds}-{style}", hits, options);
+            }
+            var taps8 = new List<TileHit>(); var m = 1.0;
+            foreach (var tapsOf in new[] { 2, 4, 5, 6, 7, 8, 3 })
+            {
+                taps8.Add(new TileHit(taps8.Count + 1, m, tapsOf == 5 ? .3 : 0, 180, tapsOf, true));
+                m += .2 + (mask % 3) * .1;
+            }
+            Add($"keys{keys}-multitap-{mask}-{style}", taps8, options);
+        }
+        // 重置间隔调到 300 ms 时交替优先的短串（35 ms 起）落进 R/4（75 ms）以内：交替优先改过的不再改成多指轮
+        var wide = new FingeringOptions { Style = style, Keys = keys, ResetWindow = .3, ReviewShortMinGap = .035 };
+        foreach (var count in new[] { 4, 5, 6, 9 })
+            foreach (var gap in new[] { .04, .05, .07 })
+                Add($"keys{keys}-wide-{count}-{gap:R}-{style}", Run(gap, count).Select(h => h with { Angle = 180 }).ToList(), wide);
+    }
 }
 File.WriteAllText(args[0], JsonSerializer.Serialize(cases));
 Console.WriteLine($"Generated {cases.Count} synthetic C# parity fixtures.");

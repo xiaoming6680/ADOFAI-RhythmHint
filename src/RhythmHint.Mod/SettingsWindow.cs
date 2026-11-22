@@ -208,10 +208,11 @@ internal sealed partial class SettingsWindow
 
         // 面板显示时（关卡里，或者设置窗口开着播放演示）才让开
         var panels = s.ShowPreview || overlay.Current.Snapshot != null;
-        var layout = new OverlayLayout(s);
-        var lanes = panels && s.ShowLanes ? layout.PanelWidth / scale : 0;
+        var layout = new OverlayLayout(s, overlay.Frame.Keys);
+        // 面板在中间时窗口放屏幕正中（两边都放不下，盖在面板上）
+        var (left, right) = layout.SideMargins(panels && s.ShowLanes ? layout.PanelWidth / scale : 0);
         var top = panels ? layout.TopHeight / scale : 0;
-        var free = new Rect(s.LanesOnRight ? 0 : lanes, s.TaikoAtBottom ? 0 : top, screenW - lanes, screenH - top);
+        var free = new Rect(left, s.TaikoAtBottom ? 0 : top, screenW - left - right, screenH - top);
         var target = ClampToScreen(new Vector2(free.x + ((free.width - _rect.width) / 2), free.y + ((free.height - _rect.height) / 2)), scale);
         if (!_placed)
         {

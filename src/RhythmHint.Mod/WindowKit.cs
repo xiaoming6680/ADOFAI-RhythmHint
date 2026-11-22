@@ -155,8 +155,12 @@ internal sealed class Ui
         Gap(20);
     }
 
-    /// <summary>开始一张卡片（圆角底、细边框），可带图标和标题。和 <see cref="EndCard"/> 配对。</summary>
-    public void BeginCard(string id, string? icon = null, string? title = null, Color? fill = null, Color? border = null, Color? bar = null)
+    /// <summary>
+    /// 开始一张卡片（圆角底、细边框），可带图标和标题。和 <see cref="EndCard"/> 配对。
+    /// note 是标题旁边的一句灰色说明，放不下时换到标题下面。
+    /// </summary>
+    public void BeginCard(string id, string? icon = null, string? title = null, Color? fill = null, Color? border = null, Color? bar = null,
+        string? note = null)
     {
         var key = Key("card:" + id);
         var top = Y;
@@ -186,6 +190,22 @@ internal sealed class Ui
         }
 
         Label(new Rect(textX, head.y + 13, head.width - (textX - head.x) - Pad, 24), title, 14, Text2, bold: true);
+        if (string.IsNullOrEmpty(note))
+        {
+            return;
+        }
+
+        var noteX = textX + Measure(title, 14, Face.Body, true).x + 12;
+        var room = head.xMax - Pad - noteX;
+        if (Measure(note!, 13).x <= room)
+        {
+            Label(new Rect(noteX, head.y + 13, room, 24), note!, 13, Text3);
+            return;
+        }
+
+        var width = head.xMax - Pad - textX;
+        var below = Take(WrappedHeight(note!, 13, width) + 6);
+        Label(new Rect(textX, below.y - 2, width, below.height), note!, 13, Text3, wrap: true, anchor: TextAnchor.UpperLeft);
     }
 
     public void EndCard()

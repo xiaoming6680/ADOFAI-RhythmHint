@@ -24,8 +24,9 @@ namespace RhythmHint.Core;
 /// </list>
 /// 规则是确定的：同一张图每次排出来都一样，节奏相同的地方形状也相同。
 /// 以上按右手为主手写；左撇子（LeftHanded）把结果整体左右镜像。
+/// 6K、8K（Keys）另有一套排法（PlanManyKeys，见 NotePlanner.ManyKeys.cs）；多押怎么合、提示有几个和 4K 一样。
 /// </summary>
-public static class NotePlanner
+public static partial class NotePlanner
 {
     /// <summary>比较时间时的容差，避免浮点误差把正好卡在门槛上的间隔判错。</summary>
     private const double Epsilon = 1e-6;
@@ -45,9 +46,19 @@ public static class NotePlanner
     /// <param name="tiles">需要按键的砖块，按时间排好。</param>
     public static List<PlannedNote> Plan(IReadOnlyList<TileHit> tiles, FingeringOptions options)
     {
+        if (!KeyLayout.IsMode(options.Keys))
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), options.Keys, "键数只能是 4、6、8。");
+        }
+
         if (options.Style == FingeringStyle.ReviewPreferenceV1)
         {
             ValidateReviewOptions(options);
+        }
+
+        if (options.Keys > Lanes.Count)
+        {
+            return PlanManyKeys(tiles, options, KeyLayout.Of(options.Keys));
         }
 
         var moments = Moments(tiles, options);
@@ -69,7 +80,8 @@ public static class NotePlanner
             var last = notes.Count > 0 ? notes[notes.Count - 1] : null;
             if (moment.Count > 1)
             {
-                notes.Add(BuildChord(moment, ChordHand(preferredChordHand, time, last, options), last, options));
+                var chordHand = ChordHand(preferredChordHand, time, last, options);
+                notes.Add(BuildChord(moment, chordHand, last, options));
                 rolled.Add(false);
             }
             else
@@ -91,7 +103,7 @@ public static class NotePlanner
                     (lane, roll) = (yieldOuter, false);
                 }
 
-                var holding = HoldingHand(last, time);
+                var holding = HoldingHand(last, time, KeyLayout.Four);
                 if (holding >= 0 && Lanes.HandOf(lane) == holding)
                 {
                     // 上一下的长按到这一下还按着：换另一只手接（2026-11-20 用户实测：同一个键要掐着最后一点松开再按，
@@ -101,7 +113,7 @@ public static class NotePlanner
 
                 if (Blocked(lane, time, last, options))
                 {
-                    (lane, roll) = (NearestFreeLane(lane, time, options, last!), false);
+                    (lane, roll) = (NearestFreeLane(lane, time, options, last!, KeyLayout.Four), false);
                 }
 
                 var note = new PlannedNote(moment[0].TileIndex, time);
@@ -123,7 +135,7 @@ public static class NotePlanner
             ReviewPhrases(notes, options);
         }
 
-        return options.LeftHanded ? notes.ConvertAll(Mirror) : notes;
+        return options.LeftHanded ? notes.ConvertAll(note => Mirror(note, KeyLayout.Four)) : notes;
     }
 
     private static void ValidateReviewOptions(FingeringOptions o)
@@ -143,13 +155,13 @@ public static class NotePlanner
             throw new ArgumentException("审核偏好短串至少需要两个音符，最小值不能大于最大值。");
     }
 
-    /// <summary>左右镜像（D↔K、F↔J）：左撇子的排法就是右手为主时的镜像，规则只写一份，两边始终一致。</summary>
-    private static PlannedNote Mirror(PlannedNote note)
+    /// <summary>左右镜像（4K：D↔K、F↔J；6K、8K 同一根手指换到另一只手）：左撇子的排法就是右手为主时的镜像，规则只写一份，两边始终一致。</summary>
+    private static PlannedNote Mirror(PlannedNote note, KeyLayout layout)
     {
         var mirrored = new PlannedNote(note.TileIndex, note.Time) { LastTileIndex = note.LastTileIndex };
         foreach (var kv in note.Lanes)
         {
-            mirrored.Lanes[Lanes.Count - 1 - kv.Key] = kv.Value;
+            mirrored.Lanes[layout.Mirror(kv.Key)] = kv.Value;
         }
 
         return mirrored;
@@ -344,6 +356,7 @@ public static class NotePlanner
     /// 又挨得近（≤ ChordMaxGap）就是同一下，一块接一块串起来；读不到转角时和这一组第一块相隔不到 ChordWindow 算同一下。
     /// 双押砖（TileHit.Taps ≥ 2）要按几下就在时刻里占几个位置，BuildChord 一个位置给一个键，所以它和挨着的砖合成的伪多押一样排（双押同手）。
     /// 一共超过 4 下：4K 只有四个键，是连打不是多押，按砖全部拆开，每块砖自己最多 4 个键。
+    /// 这里的 4 是 4K 的键数（Lanes.Count），6K、8K 也一样：多押怎么合不随键数变，提示的个数和分组和 4K 一样（ChordPresses 再给超过 4 下的双押砖补键）。
     /// </summary>
     private static List<List<TileHit>> Moments(IReadOnlyList<TileHit> tiles, FingeringOptions o)
     {
@@ -489,14 +502,14 @@ public static class NotePlanner
     private static bool StillHeld(PlannedNote last, double hold, double time) => hold > 0 && last.Time + hold > time - Epsilon;
 
     /// <summary>上一下的长按到这一下还没松开时，按着长按的那只手；没有、或两只手都按着时是 -1。</summary>
-    private static int HoldingHand(PlannedNote? last, double time)
+    private static int HoldingHand(PlannedNote? last, double time, KeyLayout layout)
     {
         if (last is null)
         {
             return -1;
         }
 
-        var hands = last.Lanes.Where(kv => StillHeld(last, kv.Value, time)).Select(kv => Lanes.HandOf(kv.Key)).Distinct().ToList();
+        var hands = last.Lanes.Where(kv => StillHeld(last, kv.Value, time)).Select(kv => layout.HandOf(kv.Key)).Distinct().ToList();
         return hands.Count == 1 ? hands[0] : -1;
     }
 
@@ -504,11 +517,11 @@ public static class NotePlanner
     /// 单押和上一下同轨又太近（通常紧跟在双押后面）：换到上一下没用的轨道里离上一下最近的那条（一样近时取离原位置近的），
     /// 例如 ##.. 之后本来要按 0，就改按 2，接得上又不连按。
     /// </summary>
-    private static int NearestFreeLane(int lane, double time, FingeringOptions o, PlannedNote last)
+    private static int NearestFreeLane(int lane, double time, FingeringOptions o, PlannedNote last, KeyLayout layout)
     {
         var best = lane;
         var bestScore = int.MaxValue;
-        for (var c = 0; c < Lanes.Count; c++)
+        for (var c = 0; c < layout.Count; c++)
         {
             if (Blocked(c, time, last, o))
             {

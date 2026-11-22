@@ -46,6 +46,9 @@ public sealed class FingeringMatch
 
     /// <summary>本关有多少比例的砖用上了专属手序。</summary>
     public double Ratio => TotalHits == 0 ? 0 : (double)MatchedHits / TotalHits;
+
+    /// <summary><see cref="Notes"/> 是几键的（这一关按几键显示）。</summary>
+    public int Keys { get; internal set; } = CustomFingering.DefaultKeys;
 }
 
 /// <summary>文件夹里的一份手序和它的文件名。</summary>
@@ -86,7 +89,7 @@ public sealed class FingeringChoice
     /// <summary>像这一关的手序和对上比例，从高到低（Unsure 时给玩家选）。</summary>
     public List<(FingeringCandidate Candidate, int MatchedHits, int TotalHits)> Candidates { get; } = new();
 
-    /// <summary>像这一关、但键数和 Mod 不同的手序（以后的六键、八键）：现在不套用，状态里说明。</summary>
+    /// <summary>像这一关、但键数比这一关显示的多（或是奇数键）的手序：不套用，状态里说明。</summary>
     public List<FingeringCandidate> OtherKeys { get; } = new();
 
     /// <summary>当成一份的重复文件（日志用）：内容一样的几份，或同一位作者给这一版谱面存过好几次。</summary>
@@ -338,12 +341,20 @@ public static class FingeringMatcher
     /// 其余用 <paramref name="auto"/>（同一关的自动排键）。一个自动音符只有一部分砖对上时，压在它上面的专属音符也退回自动，
     /// 保证每块砖正好属于一个音符。键数不同（以后的六键、八键）时整首用自动。
     /// </summary>
-    public static FingeringMatch Apply(CustomFingering file, IReadOnlyList<TileHit> hits, IReadOnlyList<PlannedNote> auto, bool leftHanded) =>
-        Apply(file, hits, auto, leftHanded, new Rhythm(hits), null);
+    /// <param name="auto">这一关按 <paramref name="keys"/> 键自动排的音符（对不上的地方用它补）。</param>
+    /// <param name="keys">这一关按几键显示。文件的键数一样就照文件；更少（偶数键）就同一只手、同一根手指放进来（4K 手序在 8K 里是中间四个键）；
+    /// 更多或奇数键的不套用，整关用自动排键。</param>
+    public static FingeringMatch Apply(CustomFingering file, IReadOnlyList<TileHit> hits, IReadOnlyList<PlannedNote> auto, bool leftHanded,
+        int keys = CustomFingering.DefaultKeys) =>
+        Apply(file, hits, auto, leftHanded, new Rhythm(hits), null, keys);
+
+    /// <summary>键数为 <paramref name="fileKeys"/> 的手序能不能按 <paramref name="keys"/> 键显示：偶数键、不比它多。</summary>
+    public static bool Fits(int fileKeys, int keys) => KeyLayout.IsSupported(fileKeys) && fileKeys <= keys;
 
     private static FingeringMatch Apply(CustomFingering file, IReadOnlyList<TileHit> hits, IReadOnlyList<PlannedNote> auto, bool leftHanded,
-        Rhythm rhythm, Rhythm? fileRhythm)
+        Rhythm rhythm, Rhythm? fileRhythm, int keys)
     {
+        var layout = KeyLayout.Of(keys);
         var n = hits.Count;
         var curIndex = IndexByTile(hits);
         var autoRange = new List<(int First, int Last)>(auto.Count);
@@ -365,7 +376,7 @@ public static class FingeringMatcher
             claimedBy[i] = -1;
         }
 
-        if (file.Keys == Lanes.Count)
+        if (Fits(file.Keys, keys))
         {
             var map = Map(rhythm, fileRhythm ?? new Rhythm(file.Hits));
             var toCur = new int[file.Hits.Count];
@@ -449,8 +460,8 @@ public static class FingeringMatcher
             if (claimedBy[i] >= 0)
             {
                 var (first, last, source, fileFirst) = customs[claimedBy[i]];
-                var note = Place(source, file, fileFirst, hits, first, last, mirror);
-                FitTaps(note, hits, first, last, leftHanded);
+                var note = Place(source, file, fileFirst, hits, first, last, mirror, layout);
+                FitTaps(note, hits, first, last, leftHanded, layout);
                 notes.Add(note);
                 fromAuto.Add(false);
                 matched += last - first + 1;
@@ -465,7 +476,7 @@ public static class FingeringMatcher
             }
         }
 
-        return new FingeringMatch(notes, fromAuto, matched, n);
+        return new FingeringMatch(notes, fromAuto, matched, n) { Keys = keys };
     }
 
     /// <summary>
@@ -477,19 +488,26 @@ public static class FingeringMatcher
     /// <item>有像的但不够确定（不低于 <see cref="MinCandidate"/>）：不猜，列出来让玩家选</item>
     /// </list>
     /// 挑之前先把重复的当成一份（2026-11-19 评审 A：同一张谱两份就永远「不确定」）：内容一样的（浏览器重复下载出的「(1)」）只留一份；
-    /// 指纹完全一样的几份里，同一位作者的只留 updatedAt 最新的。键数和 Mod 不同的不套用，像这一关的记进 <see cref="FingeringChoice.OtherKeys"/>。
+    /// 指纹完全一样的几份里，同一位作者的只留 updatedAt 最新的。键数显示不了的（比这一关多、奇数键）不套用，像这一关的记进 <see cref="FingeringChoice.OtherKeys"/>。
+    /// 同一张谱有几种键数的手序时，先只看和 <paramref name="keys"/> 一样的，挑不出来再看全部。
     /// </summary>
+    /// <param name="autoFor">按几键自动排的音符（对不上的地方用它补；只会要 4、6、8）。</param>
     /// <param name="chosen">玩家给这个谱面指纹选过的文件名；没选过为 null。</param>
+    /// <param name="keys">这一关按几键显示（手动选的键数，或自动模式下按难度选的）。</param>
+    /// <param name="followFile">自动模式：用上的手序是 4、6、8 键时按它的键数显示（2026-11-22 用户：键数听手序文件的）。</param>
     public static FingeringChoice Choose(IReadOnlyList<FingeringCandidate> candidates, IReadOnlyList<TileHit> hits,
-        IReadOnlyList<PlannedNote> auto, bool leftHanded, string? chosen = null)
+        Func<int, IReadOnlyList<PlannedNote>> autoFor, bool leftHanded, string? chosen, int keys, bool followFile)
     {
         var chart = CustomFingering.ChartPrint(hits);
         var choice = new FingeringChoice { Chart = chart };
         var rhythm = new Rhythm(hits);
+        int ShownKeys(CustomFingering file) => followFile && KeyLayout.IsMode(file.Keys) ? file.Keys : keys;
+        FingeringMatch ApplyTo(FingeringCandidate c, Rhythm? fileRhythm) =>
+            Apply(c.File, hits, autoFor(ShownKeys(c.File)), leftHanded, rhythm, fileRhythm, ShownKeys(c.File));
         var usable = new List<FingeringCandidate>();
         foreach (var c in candidates)
         {
-            if (c.File.Keys == Lanes.Count)
+            if (Fits(c.File.Keys, ShownKeys(c.File)))
             {
                 usable.Add(c);
             }
@@ -510,23 +528,50 @@ public static class FingeringMatcher
             var picked = usable.FirstOrDefault(c => string.Equals(c.Name, chosen, StringComparison.OrdinalIgnoreCase));
             if (picked != null)
             {
-                return Use(choice, picked, Apply(picked.File, hits, auto, leftHanded, rhythm, null), FingeringReason.Chosen);
+                return Use(choice, picked, ApplyTo(picked, null), FingeringReason.Chosen);
             }
         }
 
         usable = WithoutCopies(usable, choice.Merged);
-        var exact = NewestOfEachAuthor(usable.FindAll(c => c.File.Charts.Contains(chart)), choice.Merged);
-        if (exact.Count == 1)
+        var sameKeys = usable.FindAll(c => c.File.Keys == keys);
+        if (sameKeys.Count > 0 && sameKeys.Count < usable.Count)
         {
-            return Use(choice, exact[0], Apply(exact[0].File, hits, auto, leftHanded, rhythm, null), FingeringReason.Exact);
+            var first = new FingeringChoice { Chart = chart };
+            Pick(first, sameKeys, chart, ApplyTo, rhythm);
+            if (first.Used != null)
+            {
+                first.OtherKeys.AddRange(choice.OtherKeys);
+                first.Merged.InsertRange(0, choice.Merged);
+                return first;
+            }
         }
 
-        return Score(choice, exact.Count > 1 ? exact : usable, exact.Count > 1, hits, auto, leftHanded, rhythm);
+        return Pick(choice, usable, chart, ApplyTo, rhythm);
+    }
+
+    /// <summary>
+    /// 兼容旧的调用（测试）：按 4 键显示、键数固定。
+    /// </summary>
+    public static FingeringChoice Choose(IReadOnlyList<FingeringCandidate> candidates, IReadOnlyList<TileHit> hits,
+        IReadOnlyList<PlannedNote> auto, bool leftHanded, string? chosen = null) =>
+        Choose(candidates, hits, _ => auto, leftHanded, chosen, CustomFingering.DefaultKeys, followFile: false);
+
+    /// <summary>在 pool 里挑：指纹完全一样的只有一份（同一位作者的只留最新）就用它，否则按节奏对齐打分。</summary>
+    private static FingeringChoice Pick(FingeringChoice choice, List<FingeringCandidate> pool, string chart,
+        Func<FingeringCandidate, Rhythm?, FingeringMatch> applyTo, Rhythm rhythm)
+    {
+        var exact = NewestOfEachAuthor(pool.FindAll(c => c.File.Charts.Contains(chart)), choice.Merged);
+        if (exact.Count == 1)
+        {
+            return Use(choice, exact[0], applyTo(exact[0], null), FingeringReason.Exact);
+        }
+
+        return Score(choice, exact.Count > 1 ? exact : pool, exact.Count > 1, applyTo, rhythm);
     }
 
     /// <summary>按节奏对齐给候选打分；不可能对上 <see cref="MinCandidate"/> 的（砖数差太多、节奏片段对不上）先跳过，不做对齐。</summary>
-    private static FingeringChoice Score(FingeringChoice choice, List<FingeringCandidate> pool, bool allExact, IReadOnlyList<TileHit> hits,
-        IReadOnlyList<PlannedNote> auto, bool leftHanded, Rhythm rhythm)
+    private static FingeringChoice Score(FingeringChoice choice, List<FingeringCandidate> pool, bool allExact,
+        Func<FingeringCandidate, Rhythm?, FingeringMatch> applyTo, Rhythm rhythm)
     {
         var scored = new List<(FingeringCandidate Candidate, FingeringMatch Match)>();
         foreach (var c in pool)
@@ -534,7 +579,7 @@ public static class FingeringMatcher
             var fileRhythm = CouldMatch(c.File, rhythm);
             if (fileRhythm != null)
             {
-                var match = Apply(c.File, hits, auto, leftHanded, rhythm, fileRhythm);
+                var match = applyTo(c, fileRhythm);
                 if (match.Ratio >= MinCandidate)
                 {
                     scored.Add((c, match));
@@ -710,8 +755,11 @@ public static class FingeringMatcher
         return map;
     }
 
-    private static PlannedNote Place(PlannedNote source, CustomFingering file, int fileFirst, IReadOnlyList<TileHit> hits, int first, int last, bool mirror)
+    /// <summary>文件里的一个音符放到本关：作者和玩家惯用手不同时按文件的键数镜像，键数比本关少时同一只手、同一根手指放进来。</summary>
+    private static PlannedNote Place(PlannedNote source, CustomFingering file, int fileFirst, IReadOnlyList<TileHit> hits, int first, int last, bool mirror,
+        KeyLayout layout)
     {
+        var fileLayout = KeyLayout.Of(file.Keys);
         var note = new PlannedNote(hits[first].TileIndex, hits[first].Time) { LastTileIndex = hits[last].TileIndex };
 
         // 长按：文件里这几块砖的长按总时长换算到本关（谱面变速后长按跟着变）
@@ -728,7 +776,7 @@ public static class FingeringMatcher
 
         foreach (var kv in source.Lanes)
         {
-            var lane = mirror ? Lanes.Count - 1 - kv.Key : kv.Key;
+            var lane = layout.FromLayout(fileLayout, mirror ? fileLayout.Mirror(kv.Key) : kv.Key);
             note.Lanes[lane] = kv.Value > 0 && fileHold > 0 ? kv.Value * curHold / fileHold : 0;
         }
 
@@ -736,12 +784,12 @@ public static class FingeringMatcher
     }
 
     /// <summary>
-    /// 盖着双押砖的专属音符：键数补到 / 减到这几块砖现在一共要按几下（最多 4）。手序可能是在另一种游戏设置下做的
+    /// 盖着双押砖的专属音符：键数补到 / 减到这几块砖现在一共要按几下（最多是这一关的键数）。手序可能是在另一种游戏设置下做的
     /// （设成「双押砖只按一下」时双押砖上是单押）：少了游戏不前进；多了多按的那下打到下一块砖。
-    /// 补键先补已有键同一只手的另一根手指（双押同手），还不够再按「惯用手食指、另一只手食指、外侧」的顺序补；
-    /// 减键先去外侧手指，最后留惯用手食指。不盖双押砖的音符不动（第三方工具在普通砖上写的多个键照旧）。
+    /// 补键先补已有键同一只手的别的手指（双押同手，从食指往外），还不够再按「惯用手食指、另一只手食指、惯用手中指……」的顺序补；
+    /// 减键先去最外侧的手指，最后留惯用手食指。不盖双押砖的音符不动（第三方工具在普通砖上写的多个键照旧）。
     /// </summary>
-    private static void FitTaps(PlannedNote note, IReadOnlyList<TileHit> hits, int first, int last, bool leftHanded)
+    private static void FitTaps(PlannedNote note, IReadOnlyList<TileHit> hits, int first, int last, bool leftHanded, KeyLayout layout)
     {
         var multitap = false;
         var need = 0;
@@ -756,8 +804,8 @@ public static class FingeringMatcher
             return;
         }
 
-        need = Math.Min(need, Lanes.Count);
-        var order = leftHanded ? new[] { 1, 2, 0, 3 } : new[] { 2, 1, 3, 0 };
+        need = Math.Min(need, layout.Count);
+        var order = TapOrder(layout, leftHanded);
         for (var k = order.Length - 1; k >= 0 && note.Lanes.Count > need; k--)
         {
             note.Lanes.Remove(order[k]);
@@ -766,9 +814,18 @@ public static class FingeringMatcher
         var hold = note.Lanes.Values.DefaultIfEmpty(0).Max();
         while (note.Lanes.Count < need)
         {
-            var partner = order.Where(note.Lanes.ContainsKey).Select(Lanes.Partner).Where(l => !note.Lanes.ContainsKey(l));
-            note.Lanes[partner.Concat(order.Where(l => !note.Lanes.ContainsKey(l))).First()] = hold;
+            var sameHand = order.Where(note.Lanes.ContainsKey)
+                .SelectMany(lane => Enumerable.Range(0, layout.FingersPerHand).Select(finger => layout.Lane(layout.HandOf(lane), finger)))
+                .Where(l => !note.Lanes.ContainsKey(l));
+            note.Lanes[sameHand.Concat(order.Where(l => !note.Lanes.ContainsKey(l))).First()] = hold;
         }
+    }
+
+    /// <summary>补键的先后：惯用手食指、另一只手食指、惯用手中指、另一只手中指……（4K 右手为主是 J F K D）。</summary>
+    internal static int[] TapOrder(KeyLayout layout, bool leftHanded)
+    {
+        var main = leftHanded ? 0 : 1;
+        return Enumerable.Range(0, layout.FingersPerHand).SelectMany(finger => new[] { layout.Lane(main, finger), layout.Lane(1 - main, finger) }).ToArray();
     }
 
     private static Dictionary<int, int> IndexByTile(IReadOnlyList<TileHit> hits)

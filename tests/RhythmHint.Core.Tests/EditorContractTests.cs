@@ -44,8 +44,25 @@ public class EditorContractTests
         fingering.UpdatedAt = new DateTimeOffset(2026, 11, 18, 0, 0, 0, TimeSpan.Zero);
         var fromAuto = notes.ConvertAll(_ => false);
         fromAuto[notes.Count - 1] = true;
+        // 编辑器里能切换的另一种键数（6K，自动排键）
+        var six = new FingeringOptions { Keys = 6 };
+        var sixFingering = CustomFingering.From(hits, NotePlanner.Plan(hits, six), leftHanded: false, keys: 6);
+        sixFingering.Song = fingering.Song;
+        sixFingering.Artist = fingering.Artist;
+        sixFingering.Charter = fingering.Charter;
+        sixFingering.UpdatedAt = fingering.UpdatedAt;
+        var variant = new SessionVariant
+        {
+            Id = SessionLibrary.IdOf(sixFingering),
+            Fingering = sixFingering,
+            FileName = sixFingering.SuggestedFileName(),
+            KeyLabels = new[] { "S", "D", "F", "J", "K", "L" },
+            Standard = NotePlanner.Plan(hits, six),
+            Alternate = NotePlanner.Plan(hits, new FingeringOptions { Keys = 6, Style = FingeringStyle.ReviewPreferenceV1 }),
+        };
         return new EditorSession
         {
+            Variants = new[] { variant },
             Id = SessionLibrary.IdOf(fingering),
             Fingering = fingering,
             FromAuto = fromAuto,

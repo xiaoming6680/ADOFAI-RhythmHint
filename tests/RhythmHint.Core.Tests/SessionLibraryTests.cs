@@ -282,4 +282,30 @@ public class ShellLinkTests
         Assert.Throws<ArgumentException>(() => ShellLink.Build(@"Mods\RhythmHint\Editor\index.html", "Mods", null, "x"));
         Assert.Throws<ArgumentException>(() => ShellLink.Build(@"\\server\share\index.html", "x", null, "x"));
     }
+
+    [Fact]
+    public void SixAndEightKeySessionsAreKeptApart()
+    {
+        // 2026-11-22：同一张谱的 4K、6K 会话在历史里各留一份（编辑器的草稿也按这个 Id 分开）；4K 的 Id 和以前一样
+        var hits = Enumerable.Range(0, 6).Select(i => new TileHit(i + 1, 1 + (i * 0.3), Angle: 180)).ToList();
+        var four = CustomFingering.From(hits, NotePlanner.Plan(hits, new FingeringOptions()), false);
+        var six = CustomFingering.From(hits, NotePlanner.Plan(hits, new FingeringOptions { Keys = 6 }), false, 6);
+
+        Assert.Equal(CustomFingering.ChartPrint(hits), SessionLibrary.IdOf(four));
+        Assert.Equal(CustomFingering.ChartPrint(hits) + "-6k", SessionLibrary.IdOf(six));
+        var folder = Directory.CreateTempSubdirectory("rhythmhint-recent-").FullName;
+        try
+        {
+            SessionLibrary.Save(folder, new EditorSession { Fingering = four }, DateTimeOffset.FromUnixTimeMilliseconds(1));
+            SessionLibrary.Save(folder, new EditorSession { Fingering = six }, DateTimeOffset.FromUnixTimeMilliseconds(2));
+            var index = File.ReadAllText(Path.Combine(folder, SessionLibrary.FolderName, "index.js"));
+            Assert.Contains("\"id\":\"" + SessionLibrary.IdOf(six) + "\"", index, StringComparison.Ordinal);
+            Assert.Contains("\"keys\":6", index, StringComparison.Ordinal);
+            Assert.Contains("\"id\":\"" + SessionLibrary.IdOf(four) + "\"", index, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
 }

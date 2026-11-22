@@ -4,7 +4,7 @@ using UnityEngine;
 namespace RhythmHint;
 
 /// <summary>
-/// 太鼓条（横条，在屏幕上面或下面）：四轨面板那一侧是 BPM 和剩余时间，其余是太鼓式节奏条（圆形音符从右往左滚到判定圈）。
+/// 太鼓条（横条，在屏幕上面或下面）：下落面板那一侧是 BPM 和剩余时间（面板在中间时放左边），其余是太鼓式节奏条（圆形音符从右往左滚到判定圈）。
 /// </summary>
 internal static class TopBarView
 {
@@ -20,24 +20,33 @@ internal static class TopBarView
             Painter.Rect(bar, Painter.PanelColor.WithAlpha(Mathf.Clamp01(s.PanelOpacity)));
         }
 
-        // BPM 框在四轨面板那一侧（面板在右边时框也在右边），节奏条占剩下的宽度
+        // BPM 框在下落面板那一侧（面板在右边时框也在右边，在中间时放左边），节奏条占剩下的宽度。
+        // 换边的途中框滑过去，节奏条跟着挪；先画节奏条再画框，框盖在上面
         var track = new Rect(0, l.BarY, Screen.width, l.TopHeight);
+        var box = new Rect(l.BoxX(s), l.BarY, l.PanelWidth, l.TopHeight);
         if (s.ShowBpm)
         {
-            var box = new Rect(l.LanesRight ? Screen.width - l.PanelWidth : 0, l.BarY, l.PanelWidth, l.TopHeight);
-            DrawBpmBox(f, l, box);
-            if (s.ShowDifficulty)
-            {
-                DifficultyBadge.Draw(box, l.Scale, f.DifficultyTier);
-            }
-
-            track = new Rect(l.LanesRight ? 0 : l.PanelWidth, l.BarY, Screen.width - l.PanelWidth, l.TopHeight);
+            var side = Screen.width - l.PanelWidth;
+            var u = side > 0 ? Mathf.Clamp01(box.x / side) : 0;
+            track = new Rect(Mathf.Round(l.PanelWidth * (1 - u)), l.BarY, side, l.TopHeight);
         }
 
         if (s.ShowTaiko)
         {
             DrawTrack(f, l, s, track);
+        }
 
+        if (s.ShowBpm)
+        {
+            DrawBpmBox(f, l, box);
+            if (s.ShowDifficulty)
+            {
+                DifficultyBadge.Draw(box, l.Scale, f.DifficultyTier);
+            }
+        }
+
+        if (s.ShowTaiko)
+        {
             // 分隔线在横条靠屏幕中间的那一边
             var lineY = l.TaikoBottom ? l.BarY : l.BarY + l.TopHeight - (2 * l.Scale);
             Painter.Rect(new Rect(0, lineY, Screen.width, 2 * l.Scale), new Color(0.3f, 0.3f, 0.34f));
@@ -45,15 +54,16 @@ internal static class TopBarView
 
         if (f.Caption.Source.Length > 0)
         {
-            // 说明紧挨着横条（在上面时画在它下面，在下面时画在它上面；太鼓条关掉时贴着屏幕边），只占四轨面板以外的宽度，放不下就缩小字号。
+            // 说明紧挨着横条（在上面时画在它下面，在下面时画在它上面；太鼓条关掉时贴着屏幕边），只占下落面板旁边空着的那一边，放不下就缩小字号。
             // 复现（用户录屏）：英文、韩文、日文的说明比中文长得多，原来从屏幕左边画起，前半句压在四轨面板底下
-            var lanes = s.ShowLanes ? l.PanelWidth : 0;
-            var left = (l.LanesRight ? 0 : lanes) + (16 * l.Scale);
-            var right = Screen.width - (l.LanesRight ? lanes : 0) - (16 * l.Scale);
+            var pad = 16 * l.Scale;
+            var onRight = !l.LanesRight; // 面板在左边或中间：说明放右边那一块
+            var left = !s.ShowLanes ? pad : onRight ? l.PanelX + l.PanelWidth + pad : pad;
+            var right = !s.ShowLanes ? Screen.width - pad : onRight ? Screen.width - pad : l.PanelX - pad;
             var strip = l.StripHeight;
             var y = l.TaikoBottom ? Screen.height - strip - (30 * l.Scale) : strip + (6 * l.Scale);
             Painter.FitText(new Rect(left, y, right - left, 24 * l.Scale), Lang.T(f.Caption),
-                Mathf.RoundToInt(18 * l.Scale), new Color(1f, 0.85f, 0.4f), true, l.LanesRight ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight);
+                Mathf.RoundToInt(18 * l.Scale), new Color(1f, 0.85f, 0.4f), true, onRight ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft);
         }
     }
 

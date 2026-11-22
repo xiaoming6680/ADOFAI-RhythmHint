@@ -50,12 +50,13 @@ Outside a level, a demo that follows the menu music plays next to the settings w
 | Page | What it's for |
 |---|---|
 | Overview | Current status, a few display switches, and shortcuts to Appearance, Fingering and Custom fingering |
-| Appearance | Note style (bars / circles), panel position, which parts to show, keys (one set each for 4K, 6K and 8K), size, opacity |
-| Fingering | Key count, fingering style, dominant hand, chord hand, rolls and thresholds |
+| Appearance | Note style (bars / circles), panel position, which parts to show, size, opacity |
+| Keys | Key count (chosen by difficulty, or pick 4K / 6K / 8K), the keys for each key count, the hotkey that opens the settings |
+| Fingering | Fingering style, dominant hand, chord hand; rolls and thresholds are under Advanced |
 | Custom fingering | Make your own fingering for this song, open the fingering folder |
 | Calibration | Visual offset: adjust here if notes and music don't line up |
-| General | Interface language, the hotkey that opens the settings, automatic updates, status |
-| About | Version and update progress (downloading, retry if it fails), author, player group, repository |
+| General | Interface language, automatic updates and update progress (downloading, retry if it fails), status |
+| About | Version, author, player group, repository |
 
 A short guide walks you through it the first time; click the question mark in the top right to see it again. The window can be dragged and saves when closed, and clicking around in it never triggers the game.
 
@@ -84,7 +85,7 @@ On the Fingering page you can also:
 - **Change the fingering style**: the default, Standard, is the set of rules above; Alternate first (experimental) alternates both index fingers on fast short runs of four or five notes, with fewer hand changes around chords. You can switch back at any time
 - **Play left-handed**: set the dominant hand to left to mirror everything, with left F as the main key and rolls as D F K J
 - **Put chords on the other hand**: for example, single notes on right J and doubles on left D F, with single notes next to a double moving to the right hand
-- **Adjust the thresholds and rolls** if something doesn't feel right
+- **Adjust the thresholds and rolls** under Advanced if something doesn't feel right
 
 ## 6K / 8K (experimental)
 
@@ -95,7 +96,7 @@ Besides 4K (D F J K) there are 6K (S D F J K L) and 8K (A S D F J K L ;). By def
 - **Chords stay on one hand when it has the fingers**: triples in 6K and quads in 8K are played with one hand
 - **A finger that has no time to rest is swapped out**: for example, if the same key would come again right after a double, a rested finger takes it
 
-If you'd rather not have it chosen for you, pick 4K / 6K / 8K under Key count on the Fingering page, or change the tiers where 6K and 8K start. Set the keys for each key count under Key boxes on the Appearance page.
+If you'd rather not have it chosen for you, pick 4K / 6K / 8K under Key count on the Keys page, or change the tiers where 6K and 8K start under Tier thresholds. The keys for each key count are set on the Keys page too.
 
 ## Custom fingering
 
@@ -130,7 +131,7 @@ To build it yourself, see the [development notes](docs/开发说明.md) (in Chin
 ## Troubleshooting
 
 - **No hints showing**: F8 → Status on the General page tells you why; the UMM log `Managed\UnityModManager\Log.txt` has it too
-- **Not using D F J K**: under Key boxes on the Appearance page, pick 4K, 6K or 8K, then click Custom and pick your own keys on the on-screen keyboard (Shift, Space, arrow keys, the numpad, F1–F12 and mouse side buttons all work). The hotkey that opens the settings is changed on the General page
+- **Not using D F J K**: under Key boxes on the Keys page, pick the 4K, 6K or 8K layout to edit, then click Custom and pick your own keys on the on-screen keyboard (Shift, Space, arrow keys, the numpad, F1–F12 and mouse side buttons all work). The hotkey that opens the settings is on the Keys page too
 - **Notes and music don't line up**: adjust Visual offset on the Calibration page until notes land right on the beat
 - **Does it affect my results?** No, judgment is not touched at all
 

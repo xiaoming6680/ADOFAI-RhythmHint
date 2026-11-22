@@ -5,7 +5,7 @@ using static RhythmHint.WindowSkin;
 
 namespace RhythmHint;
 
-/// <summary>设置窗口：排键和专属手序两页。</summary>
+/// <summary>设置窗口：排键和专属手序两页。键数、键位和快捷键在 SettingsWindow.Keys.cs。</summary>
 internal sealed partial class SettingsWindow
 {
     /// <summary>多押里相邻两块最多隔多久（毫秒），只读 FingeringOptions 的默认值，不在设置里调。</summary>
@@ -21,50 +21,22 @@ internal sealed partial class SettingsWindow
     private void RulesPage(Settings s, Overlay overlay)
     {
         PageHeader(Page.Rules, Lang.T("自动排键只看本关的砖块间隔，不针对任何谱面特化；修改后立即重新排键。"));
-        KeysCard(s);
         StyleCard(s);
 
-        // 惯用手与多押：两个选择 + 键位图（主手橙框、多押用的键蓝光），说明里的手和键跟着换（左撇子是整套左右镜像）
+        // 惯用手与多押：两个选择 + 键位图（主手橙框、多押用的键蓝光，左撇子是整套左右镜像）。
+        // 原来下面还有一大段说明，键位图已经画清楚了，2026-11-22 重新分组时删掉
         var (right, left) = (Lang.T("右手"), Lang.T("左手"));
-        var keys = KeyBindings.Split(s.KeyLabels);
         _ui.BeginCard("hands", "keyboard", Lang.T("惯用手与多押"));
         s.LeftHanded = _ui.Choice("hand", "hand", Lang.T("惯用手"), null, s.LeftHanded, right, left);
         s.ChordsOnOtherHand = _ui.Choice("chordHand", "chord", Lang.T("多押用手"), null, s.ChordsOnOtherHand, Lang.T("同惯用手"), Lang.T("另一只手"));
         var chordLeft = s.LeftHanded != s.ChordsOnOtherHand;
         var map = _ui.Take(124);
-        SettingsArt.HandMap(new Rect(map.x, map.y + 12, map.width, 104), keys, s.LeftHanded, chordLeft, left, right, Lang.T("主手"));
+        SettingsArt.HandMap(new Rect(map.x, map.y + 12, map.width, 104), KeyBindings.Split(s.KeyLabels), s.LeftHanded, chordLeft, left, right, Lang.T("主手"));
         Legend(Lang.T("主手：慢速单点、停顿后起手"), Lang.T("多押优先使用"));
-        var main = s.LeftHanded ? left : right;
-        var chordKeys = chordLeft ? Keys(keys, 0, 1) : Keys(keys, 2, 3);
-        _ui.Hint(Lang.T("只看本关的砖块间隔：慢时{0}食指单点，稍快时左右食指交替，极快时同手轮指；多押优先{1}（{2}），三押由另一只手补一个键。",
-            main, chordLeft ? left : right, chordKeys));
+        _ui.Gap(8);
         _ui.EndCard();
 
-        // 节奏分界：色带尺跟着主手重置间隔动
-        _ui.BeginCard("rhythm", "gauge", Lang.T("节奏分界"));
-        var ruler = _ui.Take(118);
-        var alternate = Lang.T("左右交替");
-        SettingsArt.Ruler(new Rect(ruler.x + Ui.Pad, ruler.y + 10, ruler.width - (Ui.Pad * 2), 104), s.ResetWindowMs,
-            s.UseRoll ? Lang.T("同手轮指") : alternate, alternate, Lang.T("{0}食指单点", main), Lang.T("相邻两块砖的间隔"));
-        s.ResetWindowMs = _ui.SliderInt("reset", "clock", Lang.T("主手重置间隔"),
-            Lang.T("间隔更长时{0}食指单点；当前相当于 {1} BPM 的直线。", main, StraightBpm(s.ResetWindowMs)), s.ResetWindowMs, 100, 300, 5, v => Ms(v));
-        _ui.EndCard();
-
-        _ui.BeginCard("roll", "roll", Lang.T("轮指"));
-        s.UseRoll = _ui.Switch("roll", "roll", Lang.T("极快时同手轮指"), null, s.UseRoll);
-        s.OuterRoll = _ui.Switch("outer", "swap", Lang.T("外侧手指先按"), null, s.OuterRoll);
-        if (s.UseRoll)
-        {
-            RollOrder(s, keys);
-        }
-        else
-        {
-            _ui.Hint(Lang.T("轮指关闭时只用 {0}、{1}。", KeyBindings.Display(keys[1]), KeyBindings.Display(keys[2])));
-        }
-
-        _ui.EndCard();
-
-        AdvancedCard(s);
+        AdvancedCard(s, s.LeftHanded ? left : right);
 
         var label = Lang.T("重新排键");
         var row = _ui.Take(36);
@@ -78,41 +50,6 @@ internal sealed partial class SettingsWindow
         _ui.Gap(6);
         ResetFooter(overlay, "rules", s.ResetFingering, Lang.T("惯用手和多押用手保持不变。"));
     }
-
-    /// <summary>
-    /// 键数（2026-11-22 用户：按谱面难度动态选择，玩家可以关掉、改难度区间或者直接选几键）：自动（试验性）或 4K、6K、8K。
-    /// 自动时可以改从哪一档起用 6K、8K，演示按几键播另外选（演示谱的难度估出来是 P 档，按难度只会是 4K）。
-    /// </summary>
-    private void KeysCard(Settings s)
-    {
-        _ui.BeginCard("keyCount", "keyboard", Lang.T("键数"));
-        var selected = s.AutoKeyCount ? 0 : System.Array.IndexOf(KeyLayout.Modes, s.KeyCountFor(0).Keys) + 1;
-        var picked = _ui.Choice("keyCount", "keyboard", Lang.T("使用键数"), s.AutoKeyCount ? Lang.T("根据估算难度自动选择（试验性）") : null, selected,
-            Lang.T("自动"), "4K", "6K", "8K");
-        if (picked != selected)
-        {
-            s.AutoKeyCount = picked == 0;
-            if (picked > 0)
-            {
-                s.KeyCount = KeyLayout.Modes[picked - 1];
-            }
-        }
-
-        if (s.AutoKeyCount)
-        {
-            s.SixKeysFromTier = _ui.SliderInt("sixFrom", "gauge", Lang.T("6K 起始档位"), null, s.SixKeysFromTier, 1, 61, 1, TierName);
-            s.EightKeysFromTier = _ui.SliderInt("eightFrom", "gauge", Lang.T("8K 起始档位"), null, s.EightKeysFromTier, s.SixKeysFromTier, 61, 1, TierName);
-            var preview = System.Array.IndexOf(KeyLayout.Modes, DemoPlayer.PreviewKeys);
-            DemoPlayer.PreviewKeys = KeyLayout.Modes[_ui.Choice("previewKeys", "play", Lang.T("演示键数"), null, Mathf.Max(0, preview), "4K", "6K", "8K")];
-            _ui.Hint(Lang.T("估算难度低于 6K 起始档位或无法估算时使用 4K；使用专属手序时，按该手序的键数显示。"), 6);
-        }
-
-        _ui.Hint(Lang.T("6K、8K 采用独立的排键方式：慢速段以食指为主，快速连打由双手交替轮指，并尽量避免同一手指未经休息连续按键。各键数的按键在「外观」页的按键框中设置。"));
-        _ui.EndCard();
-    }
-
-    /// <summary>档位名（P1…U20），61 是不用这种键数。</summary>
-    private static string TierName(int tier) => tier >= KeyCountChooser.Never ? Lang.T("不使用") : DifficultyTiers.Name(tier);
 
     /// <summary>排法：两张卡片；选了交替优先，它自己的参数在下面展开（左边一道黄条，看得出是它专属的）。</summary>
     private void StyleCard(Settings s)
@@ -177,8 +114,6 @@ internal sealed partial class SettingsWindow
         _ui.Gap(4);
     }
 
-    private static string Keys(string[] keys, int a, int b) => KeyBindings.Display(keys[a]) + " " + KeyBindings.Display(keys[b]);
-
     /// <summary>轮指顺序：四个键帽中间画箭头（外侧先按 K J D F，食指先按 J K F D；左撇子左右镜像；写玩家自己的键位）。</summary>
     private void RollOrder(Settings s, string[] keys)
     {
@@ -201,30 +136,47 @@ internal sealed partial class SettingsWindow
         }
     }
 
-    /// <summary>不常调的三个参数收在「高级参数」里，点标题展开（高度和透明度一起动）。</summary>
-    private void AdvancedCard(Settings s)
+    /// <summary>
+    /// 不常调的参数收在「高级参数」里，点标题展开（高度和透明度一起动）。2026-11-22 用户嫌排键页太长、找不到东西：
+    /// 节奏分界、轮指原来各占一张卡片，也并进来分成三组；标题行写主手重置间隔和轮指开没开，不展开也知道现在的值。
+    /// </summary>
+    private void AdvancedCard(Settings s, string main)
     {
         _ui.BeginCard("advanced");
-        var head = _ui.Take(56);
-        if (_ui.Click(head))
-        {
-            _advanced = !_advanced;
-        }
-
-        var hover = _ui.Hover("advanced", head);
-        Fill(new Rect(head.x + 1, head.y + 1, head.width - 2, head.height - 2), With(Color.white, 0.02f * hover), 11);
-        Icon(new Vector2(head.x + Ui.Pad + 8, head.center.y), 17, "sliders", Text3);
-        var title = Lang.T("高级参数");
-        var tw = Measure(title, 14, Face.Body, true).x;
-        Label(new Rect(head.x + Ui.Pad + 26, head.y, tw + 4, head.height), title, 14, Text2, bold: true);
-        var summary = Lang.T("多押换手范围、同键连按、多押转角");
-        var room = head.width - (Ui.Pad * 2) - 26 - tw - 16 - 30;
-        Label(new Rect(head.x + Ui.Pad + 26 + tw + 14, head.y, room, head.height), Ellipsize(summary, 13, room), 13, Text3);
-        var turn = Motion.Ease("rules:advanced:chev", _advanced ? 180 : 0, 0.25f);
-        Icon(new Vector2(head.xMax - Ui.Pad - 9, head.center.y), 18, "chev", Mix(Text3, Text, hover), turn);
-
+        var summary = Lang.T("主手重置间隔 {0}，轮指{1}", Ms(s.ResetWindowMs), s.UseRoll ? Lang.T("开启") : Lang.T("关闭"));
+        _advanced = FoldHeader("advanced", "sliders", Lang.T("高级参数"), summary, _advanced);
         if (_ui.BeginFold("advanced", _advanced))
         {
+            var keys = KeyBindings.Split(s.KeyLabels);
+            var (x, width) = (_ui.X, _ui.Width);
+            _ui.X += Ui.Pad;
+            _ui.Width -= Ui.Pad * 2;
+
+            // 节奏分界：色带尺跟着主手重置间隔动
+            _ui.BeginCard("rhythm", "gauge", Lang.T("节奏分界"), fill: Well);
+            var ruler = _ui.Take(118);
+            var alternate = Lang.T("左右交替");
+            SettingsArt.Ruler(new Rect(ruler.x + Ui.Pad, ruler.y + 10, ruler.width - (Ui.Pad * 2), 104), s.ResetWindowMs,
+                s.UseRoll ? Lang.T("同手轮指") : alternate, alternate, Lang.T("{0}食指单点", main), Lang.T("相邻两块砖的间隔"));
+            s.ResetWindowMs = _ui.SliderInt("reset", "clock", Lang.T("主手重置间隔"),
+                Lang.T("间隔更长时{0}食指单点；当前相当于 {1} BPM 的直线。", main, StraightBpm(s.ResetWindowMs)), s.ResetWindowMs, 100, 300, 5, v => Ms(v));
+            _ui.EndCard();
+
+            _ui.BeginCard("roll", "roll", Lang.T("轮指"), fill: Well);
+            s.UseRoll = _ui.Switch("roll", "roll", Lang.T("极快时同手轮指"), null, s.UseRoll);
+            s.OuterRoll = _ui.Switch("outer", "swap", Lang.T("外侧手指先按"), null, s.OuterRoll);
+            if (s.UseRoll)
+            {
+                RollOrder(s, keys);
+            }
+            else
+            {
+                _ui.Hint(Lang.T("轮指关闭时只用 {0}、{1}。", KeyBindings.Display(keys[1]), KeyBindings.Display(keys[2])));
+            }
+
+            _ui.EndCard();
+
+            _ui.BeginCard("chords", "chord", Lang.T("多押与连按"), fill: Well);
             s.ChordFocusMs = _ui.SliderInt("focus", "chord", Lang.T("多押换手范围"), s.Style == FingeringStyle.ReviewPreferenceV1
                     ? Lang.T("与多押相隔在此范围内的单押改用另一只手；交替优先排法下超出主手重置间隔的部分不起作用；0 为不换手。")
                     : Lang.T("与多押相隔在此范围内的单押改用另一只手；0 为不换手。"),
@@ -234,6 +186,10 @@ internal sealed partial class SettingsWindow
             s.ChordAngleDeg = _ui.SliderInt("angle", "angle", Lang.T("多押转角上限"),
                 Lang.T("相邻两块砖转角不超过此值、且相隔不超过 {0} 毫秒时合为多押；连续 5 块以上视为连打。", MaxChordGapMs), s.ChordAngleDeg, 0, 60, 1,
                 v => v.ToString(CultureInfo.InvariantCulture) + "°");
+            _ui.EndCard();
+
+            _ui.X = x;
+            _ui.Width = width;
         }
 
         _ui.EndFold();

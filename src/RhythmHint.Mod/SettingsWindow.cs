@@ -9,9 +9,10 @@ namespace RhythmHint;
 
 /// <summary>
 /// 独立的设置窗口（默认按 F8 打开 / 关闭，UMM 页面里也有按钮）。2026-11-19 按玩家视角重做（用户：玩家都不知道能换皮肤、改排键）：
-/// 左边导航分概览、外观、排键、专属手序、校准、通用、关于；风格和手序编辑器一样（ComfyUI 那种深色卡片），有图标、动效和首次引导。
+/// 左边导航分概览、外观、按键、排键、专属手序、校准、通用、关于（2026-11-22 用户嫌臃肿、找不到，重新分组：同一件事只放一页，不常调的收起来）；
+/// 风格和手序编辑器一样（ComfyUI 那种深色卡片），有图标、动效和首次引导。
 /// 窗口放在提示面板以外区域的正中，面板换边时自动让开（玩家拖过就不再自动挪）。开着时演示照常播放，改什么都立刻看得到；关窗口时保存。
-/// 各页内容见 SettingsWindow.Pages.cs、SettingsWindow.Fingering.cs，引导见 SettingsWindow.Tour.cs。
+/// 各页内容见 SettingsWindow.Pages.cs、SettingsWindow.Keys.cs、SettingsWindow.Fingering.cs，引导见 SettingsWindow.Tour.cs。
 /// </summary>
 internal sealed partial class SettingsWindow
 {
@@ -25,7 +26,7 @@ internal sealed partial class SettingsWindow
     /// <summary>交流 QQ 群（关于页）。编辑器的关于页也写着它，tests/about.test.cjs 核对两边一致。</summary>
     private const string QqGroup = "1136407588";
 
-    private static readonly Page[] NavPages = { Page.Home, Page.Look, Page.Rules, Page.Custom, Page.Calib, Page.General };
+    private static readonly Page[] NavPages = { Page.Home, Page.Look, Page.Keys, Page.Rules, Page.Custom, Page.Calib, Page.General };
 
     private readonly Ui _ui = new();
     private readonly KeyPicker _keyPicker = new();
@@ -41,7 +42,7 @@ internal sealed partial class SettingsWindow
     private float _confirmUntil;
     private float _open; // 窗口出现的程度 0–1（开关动画）
     private string _slowLogged = string.Empty; // 已经记过「一帧太慢」的页，同一页只记一次
-    private int _prewarmed; // 后台预排到第几步（7 页 + 5 步引导），排完以后不再做
+    private int _prewarmed; // 后台预排到第几步（8 页 + 6 步引导），排完以后不再做
     private long _prewarmTicks;
 
     /// <summary>导航里的各页。</summary>
@@ -49,6 +50,7 @@ internal sealed partial class SettingsWindow
     {
         Home,
         Look,
+        Keys,
         Rules,
         Custom,
         Calib,
@@ -349,7 +351,7 @@ internal sealed partial class SettingsWindow
             var pill = new Rect(help.x - 10 - w, 15, w, 30);
             if (_ui.Click(pill))
             {
-                SelectPage(Page.About);
+                SelectPage(Page.General); // 新版本卡片和自动更新开关都在通用页
             }
 
             var hover = _ui.Hover("update", pill);
@@ -430,11 +432,12 @@ internal sealed partial class SettingsWindow
     /// <summary>每页的图标、名字和一句说明（导航和页标题用）。</summary>
     private static (string Icon, string Title, string Sub) PageInfo(Page page) => page switch
     {
-        Page.Look => ("palette", Lang.T("外观"), Lang.T("音符、位置、键位、大小")),
-        Page.Rules => ("hand", Lang.T("排键"), Lang.T("排法、惯用手、轮指")),
+        Page.Look => ("palette", Lang.T("外观"), Lang.T("音符、位置、显示、大小")),
+        Page.Keys => ("keyboard", Lang.T("按键"), Lang.T("键数、键位、快捷键")),
+        Page.Rules => ("hand", Lang.T("排键"), Lang.T("排法、惯用手、高级参数")),
         Page.Custom => ("pen", Lang.T("专属手序"), Lang.T("为一首歌定制并分享")),
         Page.Calib => ("target", Lang.T("校准"), Lang.T("演示预览与画面偏移")),
-        Page.General => ("gear", Lang.T("通用"), Lang.T("语言、快捷键、更新、运行状态")),
+        Page.General => ("gear", Lang.T("通用"), Lang.T("语言、更新、运行状态")),
         Page.About => ("info", Lang.T("关于"), Lang.T("版本、交流群、仓库")),
         _ => ("home", Lang.T("概览"), Lang.T("快速上手与当前状态")),
     };
@@ -470,6 +473,9 @@ internal sealed partial class SettingsWindow
             case Page.Look:
                 LookPage(s, overlay);
                 break;
+            case Page.Keys:
+                KeysPage(s, overlay);
+                break;
             case Page.Rules:
                 RulesPage(s, overlay);
                 break;
@@ -499,6 +505,35 @@ internal sealed partial class SettingsWindow
     {
         var (icon, title, _) = PageInfo(page);
         _ui.PageHeader(icon, title, desc);
+    }
+
+    /// <summary>
+    /// 折叠段的标题行（排键页的高级参数、按键页的档位分界）：图标、名字、灰色的一句摘要（写当前值，不展开也看得到）、右边转动的箭头。
+    /// 点一下展开或收起，返回新的状态。divider 为真时上面画一道和卡片里的行一样的分隔线。
+    /// </summary>
+    private bool FoldHeader(string id, string icon, string title, string summary, bool open, bool divider = false)
+    {
+        var head = _ui.Take(56);
+        if (_ui.Click(head))
+        {
+            open = !open;
+        }
+
+        if (divider)
+        {
+            Fill(new Rect(head.x + 1, head.y, head.width - 2, 1), With(Color.white, 0.045f));
+        }
+
+        var hover = _ui.Hover(id, head);
+        Fill(new Rect(head.x + 1, head.y + 1, head.width - 2, head.height - 2), With(Color.white, 0.02f * hover), 11);
+        Icon(new Vector2(head.x + Ui.Pad + 8, head.center.y), 17, icon, Text3);
+        var tw = Measure(title, 14, Face.Body, true).x;
+        Label(new Rect(head.x + Ui.Pad + 26, head.y, tw + 4, head.height), title, 14, Text2, bold: true);
+        var room = head.width - (Ui.Pad * 2) - 26 - tw - 16 - 30;
+        Label(new Rect(head.x + Ui.Pad + 26 + tw + 14, head.y, room, head.height), Ellipsize(summary, 13, room), 13, Text3);
+        var turn = Motion.Ease("fold:" + _page + ":" + id + ":chev", open ? 180 : 0, 0.25f);
+        Icon(new Vector2(head.xMax - Ui.Pad - 9, head.center.y), 18, "chev", Mix(Text3, Text, hover), turn);
+        return open;
     }
 
     /// <summary>

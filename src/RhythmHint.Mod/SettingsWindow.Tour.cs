@@ -5,16 +5,16 @@ using static RhythmHint.WindowSkin;
 namespace RhythmHint;
 
 /// <summary>
-/// 首次打开的引导（2026-11-19 用户：玩家都不知道能换皮肤、改排键）：一句欢迎，然后依次照亮外观、排键、专属手序和关闭键，
+/// 首次打开的引导（2026-11-19 用户：玩家都不知道能换皮肤、改排键）：一句欢迎，然后依次照亮外观、按键、排键、专属手序和关闭键，
 /// 每一步切到对应的页；可以跳过，标题栏的问号可以再看一遍。看完或跳过后记进设置（<see cref="Settings.GuideVersion"/>），以后不再自动弹。
 /// </summary>
 internal sealed partial class SettingsWindow
 {
-    /// <summary>引导的版本：内容大改时加一，看过旧版的玩家也会再看一次。</summary>
-    private const int GuideRevision = 1;
+    /// <summary>引导的版本：内容大改时加一，看过旧版的玩家也会再看一次（2：2026-11-22 设置重新分组、多了按键页）。</summary>
+    private const int GuideRevision = 2;
 
-    /// <summary>欢迎、外观、排键、专属手序、关闭键。</summary>
-    private const int TourSteps = 5;
+    /// <summary>欢迎、外观、按键、排键、专属手序、关闭键。</summary>
+    private const int TourSteps = 6;
 
     private int _tourStep = -1;
 
@@ -49,8 +49,9 @@ internal sealed partial class SettingsWindow
         SelectPage(_tourStep switch
         {
             1 => Page.Look,
-            2 => Page.Rules,
-            3 => Page.Custom,
+            2 => Page.Keys,
+            3 => Page.Rules,
+            4 => Page.Custom,
             _ => Page.Home,
         });
     }
@@ -65,9 +66,10 @@ internal sealed partial class SettingsWindow
         Rect? target = _tourStep switch
         {
             1 => _navRects[Page.Look],
-            2 => _navRects[Page.Rules],
-            3 => _navRects[Page.Custom],
-            4 => _closeRect,
+            2 => _navRects[Page.Keys],
+            3 => _navRects[Page.Rules],
+            4 => _navRects[Page.Custom],
+            5 => _closeRect,
             _ => null,
         };
         var dim = new Color(0.024f, 0.027f, 0.035f, 0.74f * appear);
@@ -104,10 +106,11 @@ internal sealed partial class SettingsWindow
         var step = _tourStep;
         var (title, text) = step switch
         {
-            1 => (PageInfo(Page.Look).Title, Lang.T("音符样式、面板位置、键位和大小都在这里调整，后方的演示会立即显示效果。")),
-            2 => (PageInfo(Page.Rules).Title, Lang.T("选择排法、惯用手和轮指方式，自动排键随之更新。")),
-            3 => (PageInfo(Page.Custom).Title, Lang.T("在浏览器中为一首歌逐个改键；保存后进入这首歌时自动使用，也可以分享给他人。")),
-            4 => (Lang.T("随时打开或关闭"), Lang.T("按 {0} 打开或关闭本窗口，关闭时自动保存。点击问号按钮可以再次查看本引导。",
+            1 => (PageInfo(Page.Look).Title, Lang.T("音符样式、面板位置和大小都在这里调整，后方的演示会立即显示效果。")),
+            2 => (PageInfo(Page.Keys).Title, Lang.T("选择使用的键数，设置各键数对应的按键和打开本窗口的快捷键。")),
+            3 => (PageInfo(Page.Rules).Title, Lang.T("选择排法、惯用手和轮指方式，自动排键随之更新。")),
+            4 => (PageInfo(Page.Custom).Title, Lang.T("在浏览器中为一首歌逐个改键；保存后进入这首歌时自动使用，也可以分享给他人。")),
+            5 => (Lang.T("随时打开或关闭"), Lang.T("按 {0} 打开或关闭本窗口，关闭时自动保存。点击问号按钮可以再次查看本引导。",
                 KeyBindings.Display(Main.Settings.SettingsHotkey))),
             _ => (Lang.T("欢迎使用全节奏提示"), Lang.T("用半分钟了解设置窗口：外观、排键和专属手序都可以按自己的习惯调整。")),
         };

@@ -154,7 +154,8 @@ internal sealed class KeyPicker
     {
         // 这一帧画什么在开头定好：点击改的是字段，下一帧才生效，同一帧里控件数量不变
         var count = _keys > 0 ? _keys : DemoPlayer.DemoKeys(s);
-        var tab = ui.Choice("keySet", "keyboard", Lang.T("键数"), null, Mathf.Max(0, Array.IndexOf(KeyLayout.Modes, count)), "4K", "6K", "8K");
+        // 按键页上面就是「使用键数」，这一行叫「要修改的键位」，免得看成在这里切游戏用几键
+        var tab = ui.Choice("keySet", "keyboard", Lang.T("要修改的键位"), null, Mathf.Max(0, Array.IndexOf(KeyLayout.Modes, count)), "4K", "6K", "8K");
         if (KeyLayout.Modes[tab] != count)
         {
             Close();

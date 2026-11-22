@@ -411,7 +411,7 @@ public sealed partial class Settings
         VisualOffsetMs = d.VisualOffsetMs;
     }
 
-    /// <summary>「外观」页：音符样式、位置、显示内容、自适应游戏画幅、按键框、尺寸与速度。</summary>
+    /// <summary>「外观」页：音符样式、位置、显示内容、自适应游戏画幅、尺寸与速度。按键框的键位 2026-11-22 搬到按键页，见 <see cref="ResetKeys"/>。</summary>
     public void ResetDisplay()
     {
         var d = new Settings();
@@ -430,18 +430,27 @@ public sealed partial class Settings
         TaikoSpeed = d.TaikoSpeed;
         PanelOpacity = d.PanelOpacity;
         NoteOpacity = d.NoteOpacity;
-        KeyLabels = d.KeyLabels;
-        KeyLabels6 = d.KeyLabels6;
-        KeyLabels8 = d.KeyLabels8;
         LightKeysOnPress = d.LightKeysOnPress;
     }
 
-    /// <summary>「排键」页的参数。惯用手、多押用手、用几键（自动还是手动选的哪种）和专属手序开关不动：那是玩家自己的习惯，不是调出来的参数。</summary>
+    /// <summary>
+    /// 「按键」页：三套按键框键位、自动选键数的两条分界、打开设置窗口的快捷键。用几键（自动还是手动选的哪种）不动：那是玩家自己的选择。
+    /// </summary>
+    public void ResetKeys()
+    {
+        var d = new Settings();
+        KeyLabels = d.KeyLabels;
+        KeyLabels6 = d.KeyLabels6;
+        KeyLabels8 = d.KeyLabels8;
+        SixKeysFromTier = d.SixKeysFromTier;
+        EightKeysFromTier = d.EightKeysFromTier;
+        ResetHotkey();
+    }
+
+    /// <summary>「排键」页的参数。惯用手、多押用手和专属手序开关不动：那是玩家自己的习惯，不是调出来的参数。键数在按键页，见 <see cref="ResetKeys"/>。</summary>
     public void ResetFingering()
     {
         var d = new Settings();
-        SixKeysFromTier = d.SixKeysFromTier;
-        EightKeysFromTier = d.EightKeysFromTier;
         ChordAngleDeg = d.ChordAngleDeg;
         ResetWindowMs = d.ResetWindowMs;
         ChordFocusMs = d.ChordFocusMs;
@@ -456,14 +465,11 @@ public sealed partial class Settings
         ReviewTimingToleranceMs = d.ReviewTimingToleranceMs;
     }
 
-    /// <summary>「通用」页：打开设置窗口的快捷键（界面语言不动）。</summary>
+    /// <summary>打开设置窗口的快捷键（按键页恢复默认时一起恢复）。</summary>
     public void ResetHotkey() => SettingsHotkey = new Settings().SettingsHotkey;
 
-    public void ResetGeneral()
-    {
-        ResetHotkey();
-        AutoUpdate = new Settings().AutoUpdate;
-    }
+    /// <summary>「通用」页：自动更新（界面语言不动；快捷键 2026-11-22 搬到按键页）。</summary>
+    public void ResetGeneral() => AutoUpdate = new Settings().AutoUpdate;
 
     /// <summary>
     /// 影响排键的设置（<see cref="ToFingering"/> 用到的全部，加上专属手序开关）。只有值、没有引用，每帧比一次不分配内存；

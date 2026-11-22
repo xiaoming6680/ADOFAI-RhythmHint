@@ -145,7 +145,7 @@ internal sealed partial class SettingsWindow
     {
         var tiles = new (Page Page, string Title, string Desc)[]
         {
-            (Page.Look, Lang.T("更换外观"), Lang.T("音符样式、面板位置、键位和大小。")),
+            (Page.Look, Lang.T("更换外观"), Lang.T("音符样式、面板位置、大小和速度。")),
             (Page.Rules, Lang.T("调整排键"), Lang.T("选择排法、惯用手和轮指方式。")),
             (Page.Custom, Lang.T("制作专属手序"), Lang.T("为一首歌逐个改键，并分享给他人。")),
         };
@@ -286,11 +286,7 @@ internal sealed partial class SettingsWindow
             Lang.T("在 BPM 框左侧显示按本关砖块估算的 TUF 难度档位，仅供参考，并非 TUF 官方评级。"), s.ShowDifficulty, Lang.T("试验性"));
         _ui.EndCard();
 
-        // 用户：玩家会以为在这里切键数，说明这里只设键位，游戏里用几键在排键页设
-        _ui.BeginCard("keys", "keyboard", Lang.T("按键框"), note: Lang.T("此处仅设置各键数对应的按键；游戏中使用的键数请在「排键」页设置。"));
-        _keyPicker.Draw(_ui, s);
-        _ui.EndCard();
-
+        // 按键框的键位 2026-11-22 搬到按键页（和用几键、快捷键放一起），这里只管长什么样
         _ui.BeginCard("size", "scale", Lang.T("尺寸与速度"));
         s.UiScale = _ui.Slider("scale", "scale", Lang.T("面板缩放"), null, s.UiScale, 0.5f, 2f, 0.05f, Times);
         s.LaneSpeed = _ui.Slider("fall", "fall", Lang.T("下落速度"), null, s.LaneSpeed, 0.3f, 3f, 0.05f, Times);
@@ -300,11 +296,7 @@ internal sealed partial class SettingsWindow
             s.NoteOpacity, 0.1f, 1f, 0.05f, Percent);
         _ui.EndCard();
 
-        ResetFooter(overlay, "look", () =>
-        {
-            s.ResetDisplay();
-            _keyPicker.Close();
-        }, null);
+        ResetFooter(overlay, "look", s.ResetDisplay, null);
     }
 
     /// <summary>位置那两行：名字在左、分段选择在右，返回选中第几个。</summary>
@@ -372,6 +364,13 @@ internal sealed partial class SettingsWindow
         s.PreviewSound = _ui.Switch("sound", "sound", Lang.T("无音乐时播放提示音"), null, s.PreviewSound);
         s.PreviewVolume = _ui.Slider("volume", "volume", Lang.T("提示音音量"), null, s.PreviewVolume, 0f, 1f, 0.05f,
             v => v.ToString("0.00", CultureInfo.InvariantCulture));
+        if (s.AutoKeyCount)
+        {
+            // 自动选键数时演示按几键播另外选（演示谱估出来是 P 档，按难度只会是 4K）；手动选了几键，演示就按几键播
+            var preview = Array.IndexOf(KeyLayout.Modes, DemoPlayer.PreviewKeys);
+            DemoPlayer.PreviewKeys = KeyLayout.Modes[_ui.Choice("previewKeys", "keyboard", Lang.T("演示键数"), null, Mathf.Max(0, preview), "4K", "6K", "8K")];
+        }
+
         _ui.EndCard();
 
         ResetFooter(overlay, "calib", s.ResetPreview, null);
@@ -381,7 +380,10 @@ internal sealed partial class SettingsWindow
 
     private void GeneralPage(Settings s, Overlay overlay)
     {
-        PageHeader(Page.General, Lang.T("界面语言、打开本窗口的按键、自动更新和 Mod 的运行状态。"));
+        PageHeader(Page.General, Lang.T("界面语言、自动更新和 Mod 的运行状态。"));
+
+        // 有新版本、正在下载、装好了：放在最上面（标题栏的新版本提示点进来就能看到），和下面的自动更新开关同一页
+        UpdateCard(Main.Mod.Info.HomePage);
 
         // 语言名用它自己的文字写（不翻译），「跟随游戏」翻译；三个一行
         _ui.BeginCard("language", "globe", Lang.T("界面语言"));
@@ -412,12 +414,7 @@ internal sealed partial class SettingsWindow
         _ui.Hint(Lang.T("跟随游戏时使用游戏的语言；没有对应翻译的语言显示英文。"));
         _ui.EndCard();
 
-        _ui.BeginCard("hotkey", "keyboard", Lang.T("快捷键"));
-        _hotkeyPicker.Draw(_ui, s);
-        _ui.Hint(Lang.T("也可在 Unity Mod Manager（Ctrl+F10）中打开本窗口。"));
-        _ui.EndCard();
-
-        _ui.BeginCard("update", "download", Lang.T("更新"));
+        _ui.BeginCard("autoUpdate", "download", Lang.T("更新"));
         s.AutoUpdate = _ui.Switch("autoUpdate", "refresh", Lang.T("自动更新"), Lang.T("启动游戏时检查新版本并在后台下载安装，下次启动游戏时生效。"), s.AutoUpdate);
         _ui.EndCard();
 
@@ -433,11 +430,7 @@ internal sealed partial class SettingsWindow
         _ui.Gap(14);
         _ui.EndCard();
 
-        ResetFooter(overlay, "general", () =>
-        {
-            s.ResetGeneral();
-            _hotkeyPicker.Close();
-        }, Lang.T("界面语言保持不变。"));
+        ResetFooter(overlay, "general", s.ResetGeneral, Lang.T("界面语言保持不变。"));
     }
 
     private bool LanguageChip(string id, Rect r, string name, bool follow, bool on)
@@ -467,7 +460,7 @@ internal sealed partial class SettingsWindow
     // ---------- 关于 ----------
 
     /// <summary>
-    /// 关于页顶部的更新卡片：自动更新装好了（重启生效）、正在下载、失败了（重试 / 下载页），
+    /// 通用页顶部的更新卡片（2026-11-22 从关于页搬过来，和自动更新开关放一起）：自动更新装好了（重启生效）、正在下载、失败了（重试 / 下载页），
     /// 或者只知道有新版本（自动更新关着、测试版）时照旧给 UMM 一键更新和下载页。
     /// </summary>
     private void UpdateCard(string? home)
@@ -522,7 +515,6 @@ internal sealed partial class SettingsWindow
     {
         PageHeader(Page.About, Lang.T("仅提供视觉提示，不修改判定。"));
         var info = Main.Mod.Info;
-        UpdateCard(info.HomePage);
 
         _ui.BeginCard("identity");
         var id = _ui.Take(92);

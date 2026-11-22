@@ -352,8 +352,8 @@ internal sealed class FingeringSource
         var keys = otherKeys.Count switch
         {
             0 => Message.Empty,
-            1 => Lang.M("\n{0} 是 {1} 键手序，这一关按 {2} 键显示，未使用。", otherKeys[0].Name, otherKeys[0].File.Keys, shown),
-            _ => Lang.M("\n有 {0} 份像这一关的手序比 {1} 键多，未使用：{2}", otherKeys.Count, shown,
+            1 => Lang.M("\n{0} 为 {1} 键手序，与本关的 {2} 键不符，未使用。", otherKeys[0].Name, otherKeys[0].File.Keys, shown),
+            _ => Lang.M("\n有 {0} 份与本关相近的手序键数多于 {1} 键，未使用：{2}", otherKeys.Count, shown,
                 NameList(otherKeys.ConvertAll(c => c.Name), 0, otherKeys.Count)),
         };
         if (broken.Count == 0)

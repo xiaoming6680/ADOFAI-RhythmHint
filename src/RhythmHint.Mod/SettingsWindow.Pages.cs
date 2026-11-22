@@ -61,7 +61,7 @@ internal sealed partial class SettingsWindow
     private void Hero()
     {
         var title = Lang.T("欢迎使用全节奏提示");
-        var text = Lang.T("下落面板与太鼓条的样式、位置和排键方式都可以按自己的习惯调整；修改即时生效，可在后方演示中直接查看。");
+        var text = Lang.T("可按个人习惯调整下落面板与太鼓条的样式、位置及排键方式；修改即时生效，可在后方演示中查看效果。");
         var textW = _ui.Width - 200;
         var th = WrappedHeight(text, 14, textW);
         var r = _ui.Take(Mathf.Max(118, 70 + th));
@@ -261,7 +261,7 @@ internal sealed partial class SettingsWindow
         _ui.BeginCard("layout", "layout", Lang.T("位置"));
         var lanes = new[] { Lang.T("左边"), Lang.T("中间"), Lang.T("右边") };
         var taiko = (Lang.T("上面"), Lang.T("下面"));
-        var hint = Lang.T("太鼓条那一行里，BPM 与剩余时间放在下落面板那一侧；游戏画面让到剩下的区域。面板在中间时盖在游戏画面上。");
+        var hint = Lang.T("BPM 与剩余时间显示在太鼓条中下落面板所在的一侧（面板居中时显示在左侧），游戏画面缩放至其余区域；面板居中时覆盖在游戏画面上方。");
         var area = _ui.Take(214);
         var screen = new Rect(area.x + Ui.Pad, area.y + 6, 340, 191);
         SettingsArt.ScreenLayout(screen, s);
@@ -287,7 +287,7 @@ internal sealed partial class SettingsWindow
         _ui.EndCard();
 
         // 用户：玩家会以为在这里切键数，说明这里只设键位，游戏里用几键在排键页设
-        _ui.BeginCard("keys", "keyboard", Lang.T("按键框"), note: Lang.T("此处仅设置各键数的按键；游戏中使用几键请在「排键」页设置。"));
+        _ui.BeginCard("keys", "keyboard", Lang.T("按键框"), note: Lang.T("此处仅设置各键数对应的按键；游戏中使用的键数请在「排键」页设置。"));
         _keyPicker.Draw(_ui, s);
         _ui.EndCard();
 

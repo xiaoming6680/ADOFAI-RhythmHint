@@ -593,7 +593,7 @@ internal sealed class Overlay : MonoBehaviour
         }
 
         var byAngle = hits.Exists(h => !double.IsNaN(h.Angle));
-        _levelStatus = Lang.M("本关按 {0} 键显示（{1}），共 {2} 次按键，生成 {3} 个提示（双押 {4}、三押 {5}、四押及以上 {6} 个，{7}），各轨道音符数 [{8}]{9}",
+        _levelStatus = Lang.M("本关使用 {0} 键（{1}），共 {2} 次按键，生成 {3} 个提示（双押 {4}、三押 {5}、四押及以上 {6} 个，{7}），各轨道音符数 [{8}]{9}",
             keys, KeyReason(chosen.KeyChoice, snapshot.Tier, chosen.UsedFile.Length > 0), hits.Count, notes.Count, chords[2], chords[3], many,
             byAngle ? Lang.M("按转角判断") : Lang.M("按时间判断"),
             string.Join(", ", laneUse), hits.Count == 0 ? Lang.M("；{0}", GameReader.DescribeFloors(level)) : Message.Empty);
@@ -603,10 +603,10 @@ internal sealed class Overlay : MonoBehaviour
     /// <summary>这一关为什么按这个键数显示（状态和日志里写）。</summary>
     private static Message KeyReason(KeyCountChoice choice, int tier, bool usedFingering) => choice.Reason switch
     {
-        KeyCountReason.Manual => Lang.M("设置里选的"),
-        _ when usedFingering => Lang.M("跟随专属手序"),
-        KeyCountReason.NoEstimate => Lang.M("估不出难度"),
-        _ => Lang.M("按估算难度 {0}", DifficultyTiers.Name(tier)),
+        KeyCountReason.Manual => Lang.M("手动设置"),
+        _ when usedFingering => Lang.M("依据专属手序"),
+        KeyCountReason.NoEstimate => Lang.M("无法估算难度"),
+        _ => Lang.M("依据估算难度 {0}", DifficultyTiers.Name(tier)),
     };
 
     /// <summary>

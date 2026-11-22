@@ -70,8 +70,14 @@ public sealed partial class Settings
     /// <summary>太鼓条滚动速度倍率，1 = 每秒 650 像素（1080p）。</summary>
     public float TaikoSpeed = 1f;
 
-    /// <summary>面板底色不透明度，越高越不受游戏背景影响。</summary>
+    /// <summary>面板底色不透明度，越高越不受游戏背景影响。2026-11-22 用户：面板放中间时要能调得更透明，下限从 30% 改成 0。</summary>
     public float PanelOpacity = 0.92f;
+
+    /// <summary>
+    /// 音符（下落面板和太鼓条上的音符、长按）的不透明度，判定线、按键框不变（2026-11-22 用户：面板放中间时音符挡画面）。
+    /// 1.3.x 不认这个字段，照不透明画。
+    /// </summary>
+    public float NoteOpacity = 1f;
 
     /// <summary>画面整体提前（正数）或推后（负数），毫秒。只影响显示，不影响判定。</summary>
     public int VisualOffsetMs;
@@ -194,7 +200,8 @@ public sealed partial class Settings
         [nameof(UiScale)] = (0.5, 2),
         [nameof(LaneSpeed)] = (0.3, 3),
         [nameof(TaikoSpeed)] = (0.3, 3),
-        [nameof(PanelOpacity)] = (0.3, 1),
+        [nameof(PanelOpacity)] = (0, 1),
+        [nameof(NoteOpacity)] = (0.1, 1),
         [nameof(VisualOffsetMs)] = (-200, 200),
         [nameof(ChordAngleDeg)] = (0, 60),
         [nameof(ResetWindowMs)] = (100, 300),
@@ -309,6 +316,7 @@ public sealed partial class Settings
         LaneSpeed = Fix(nameof(LaneSpeed), LaneSpeed, d.LaneSpeed, changed);
         TaikoSpeed = Fix(nameof(TaikoSpeed), TaikoSpeed, d.TaikoSpeed, changed);
         PanelOpacity = Fix(nameof(PanelOpacity), PanelOpacity, d.PanelOpacity, changed);
+        NoteOpacity = Fix(nameof(NoteOpacity), NoteOpacity, d.NoteOpacity, changed);
         VisualOffsetMs = Fix(nameof(VisualOffsetMs), VisualOffsetMs, changed);
         ChordAngleDeg = Fix(nameof(ChordAngleDeg), ChordAngleDeg, changed);
         ResetWindowMs = Fix(nameof(ResetWindowMs), ResetWindowMs, changed);
@@ -421,6 +429,7 @@ public sealed partial class Settings
         LaneSpeed = d.LaneSpeed;
         TaikoSpeed = d.TaikoSpeed;
         PanelOpacity = d.PanelOpacity;
+        NoteOpacity = d.NoteOpacity;
         KeyLabels = d.KeyLabels;
         KeyLabels6 = d.KeyLabels6;
         KeyLabels8 = d.KeyLabels8;

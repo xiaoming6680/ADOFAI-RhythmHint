@@ -12,6 +12,7 @@ What changed in each version, newest first.
 - In 6K and 8K the falling panel uses slightly narrower lanes, 336 px wide for 6K and 384 px for 8K (1080p, scale 1); the game view makes room for it
 - The falling panel can sit in the middle of the screen (F8 → Appearance → Position); it is then drawn over the game view and the BPM box moves to the left
 - Panel background opacity now also applies to the key boxes and judgment circles, so a centered panel no longer hides the accuracy on the results screen when made transparent; pressed keys, outlines and key names stay readable
+- Panel background opacity can now go down to 0, and a new Note opacity setting (F8 → Appearance → Size & speed) fades the notes on the falling panel and the taiko bar while the judgment line and key boxes stay as they are
 - Changing the key count or the panel position, or turning the falling panel on or off, now animates smoothly instead of jumping; the panel no longer stutters the first time it slides in with 6K or 8K
 - F8 → Appearance → Key boxes now notes that it only sets the keys for each key count; the key count used in game is set on the Fingering page
 - The fingering editor shows the key count of the level in the File panel on the left; levels opened from the game can switch between 4K, 6K and 8K there, each saved as its own file with unfinished edits kept

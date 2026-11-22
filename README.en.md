@@ -50,7 +50,7 @@ Outside a level, a demo that follows the menu music plays next to the settings w
 | Page | What it's for |
 |---|---|
 | Overview | Current status, a few display switches, and shortcuts to Appearance, Fingering and Custom fingering |
-| Appearance | Note style (bars / circles), panel position, which parts to show, keys (one set each for 4K, 6K and 8K), size |
+| Appearance | Note style (bars / circles), panel position, which parts to show, keys (one set each for 4K, 6K and 8K), size, opacity |
 | Fingering | Key count, fingering style, dominant hand, chord hand, rolls and thresholds |
 | Custom fingering | Make your own fingering for this song, open the fingering folder |
 | Calibration | Visual offset: adjust here if notes and music don't line up |

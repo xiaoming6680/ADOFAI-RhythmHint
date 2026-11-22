@@ -120,8 +120,11 @@ internal static class TopBarView
         }
 
         DrawJudgeCircle(f, l, new Vector2(judgeX, cy));
+        var alpha = Painter.Alpha;
+        Painter.Alpha = alpha * Mathf.Clamp01(s.NoteOpacity); // 音符按「音符不透明度」淡下去，判定圈不变
         DrawActiveHolds(f, l, judgeX, cy, speed, s.ShowChordCount);
         DrawNotes(f, l, judgeX, cy, speed, lookAhead, s.ShowChordCount);
+        Painter.Alpha = alpha;
 
         Painter.Text(new Rect(judgeX - (40 * l.Scale), area.height - (24 * l.Scale), 80 * l.Scale, 20 * l.Scale),
             f.NextNote.ToString(), Mathf.RoundToInt(15 * l.Scale), new Color(0.75f, 0.75f, 0.8f));

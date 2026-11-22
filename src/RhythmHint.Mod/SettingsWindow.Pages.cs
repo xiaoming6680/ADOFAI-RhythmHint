@@ -17,6 +17,8 @@ internal sealed partial class SettingsWindow
 
     private static string Times(float v) => "×" + v.ToString("0.00", CultureInfo.InvariantCulture);
 
+    private static string Percent(float v) => Mathf.RoundToInt(v * 100).ToString(CultureInfo.InvariantCulture) + "%";
+
     // ---------- 概览 ----------
 
     /// <summary>
@@ -293,8 +295,9 @@ internal sealed partial class SettingsWindow
         s.UiScale = _ui.Slider("scale", "scale", Lang.T("面板缩放"), null, s.UiScale, 0.5f, 2f, 0.05f, Times);
         s.LaneSpeed = _ui.Slider("fall", "fall", Lang.T("下落速度"), null, s.LaneSpeed, 0.3f, 3f, 0.05f, Times);
         s.TaikoSpeed = _ui.Slider("scroll", "scroll", Lang.T("太鼓条滚动速度"), null, s.TaikoSpeed, 0.3f, 3f, 0.05f, Times);
-        s.PanelOpacity = _ui.Slider("opacity", "opacity", Lang.T("面板底色不透明度"), null, s.PanelOpacity, 0.3f, 1f, 0.05f,
-            v => Mathf.RoundToInt(v * 100).ToString(CultureInfo.InvariantCulture) + "%");
+        s.PanelOpacity = _ui.Slider("opacity", "opacity", Lang.T("面板底色不透明度"), null, s.PanelOpacity, 0f, 1f, 0.05f, Percent);
+        s.NoteOpacity = _ui.Slider("noteOpacity", "opacity", Lang.T("音符不透明度"), Lang.T("作用于下落面板和太鼓条上的音符，不影响判定线与按键框。"),
+            s.NoteOpacity, 0.1f, 1f, 0.05f, Percent);
         _ui.EndCard();
 
         ResetFooter(overlay, "look", () =>

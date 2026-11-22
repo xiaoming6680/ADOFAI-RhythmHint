@@ -82,6 +82,8 @@
   "下落速度": "Fall speed",
   "太鼓条滚动速度": "Taiko bar scroll speed",
   "面板底色不透明度": "Panel background opacity",
+  "音符不透明度": "Note opacity",
+  "作用于下落面板和太鼓条上的音符，不影响判定线与按键框。": "Applies to notes on the falling panel and the taiko bar; the judgment line and key boxes are not affected.",
   "自适应游戏画幅": "Fit game view beside panel",
   "面板显示时，游戏画面和界面文字缩到面板以外的区域。": "While the panel is shown, the game view and its UI text shrink into the area outside the panel.",
   "右手": "Right",

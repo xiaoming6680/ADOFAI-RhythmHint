@@ -377,7 +377,7 @@ public sealed class SettingsFileTests : IDisposable
         Assert.Equal(100, broken.ResetWindowMs);
         Assert.Equal(300, broken.JackWindowMs);
         Assert.Equal(1f, broken.UiScale);
-        Assert.Equal(0.3f, broken.PanelOpacity);
+        Assert.Equal(0f, broken.PanelOpacity); // 2026-11-22 下限从 30% 改成 0
         Assert.Equal("D F J K", broken.KeyLabels);
         Assert.Equal("F8", broken.SettingsHotkey);
         Assert.Equal(string.Empty, broken.FingeringChoices);

@@ -97,17 +97,23 @@ internal static class LaneView
         var opacity = Mathf.Clamp01(s.PanelOpacity); // 按键框、判定圈的底色跟着面板底色（面板放中间时不挡结算画面）
         DrawLaneBackground(l, s.RoundNotes ? bottom : judgeY); // 圆形：轨道一直通到底，判定圈落在轨道里
         DrawBeats(f, l, hitY, speed, lookAhead);
+        var alpha = Painter.Alpha;
+        var notes = alpha * Mathf.Clamp01(s.NoteOpacity); // 音符、长按按「音符不透明度」淡下去，判定线、按键框、闪光不变
         if (s.RoundNotes)
         {
             DrawJudgeCircles(f, l, hitY, holds, opacity);
+            Painter.Alpha = notes;
             DrawBallHolds(holds, l, hitY, speed);
             DrawBallNotes(f, l, hitY, speed, lookAhead);
+            Painter.Alpha = alpha;
         }
         else
         {
             DrawFlashes(f, l, judgeY);
+            Painter.Alpha = notes;
             DrawActiveHolds(holds, l, judgeY, speed);
             DrawNotes(f, l, judgeY, speed, lookAhead);
+            Painter.Alpha = alpha;
             DrawJudgeAndKeys(f, l, judgeY, holds, opacity);
         }
     }

@@ -11,60 +11,57 @@ internal static class TopBarView
     private const float BaseSpeed = 650f;
     private const float FlashSeconds = 0.15f;
 
-    public static void Draw(OverlayFrame f, OverlayLayout l, Settings s)
+    // 分成几块画（2026-11-22 用户：开关太鼓条、BPM 框也要有动画）：太鼓条和 BPM 框各自滑进滑出，Overlay 给每块套各自的平移和透明度。
+    // 先画横条和节奏条，再画 BPM 框盖在上面，最后画分隔线和说明
+
+    /// <summary>横贯屏幕的太鼓条：底色和节奏条（节奏条让开 BPM 框占的那一截）。</summary>
+    public static void DrawStrip(OverlayFrame f, OverlayLayout l, Settings s)
     {
-        // 太鼓条关掉时不画横条，只画 BPM 框（在四轨面板那一列的顶端或底端）
-        if (s.ShowTaiko)
-        {
-            var bar = new Rect(0, l.BarY, Screen.width, l.TopHeight);
-            Painter.Rect(bar, Painter.PanelColor.WithAlpha(Mathf.Clamp01(s.PanelOpacity)));
-        }
+        Painter.Rect(new Rect(0, l.BarY, Screen.width, l.RowHeight), Painter.PanelColor.WithAlpha(Mathf.Clamp01(s.PanelOpacity)));
 
         // BPM 框在下落面板那一侧（面板在右边时框也在右边，在中间时放左边），节奏条占剩下的宽度。
-        // 换边的途中框滑过去，节奏条跟着挪；先画节奏条再画框，框盖在上面
-        var track = new Rect(0, l.BarY, Screen.width, l.TopHeight);
-        var box = new Rect(l.BoxX(s), l.BarY, l.PanelWidth, l.TopHeight);
-        if (s.ShowBpm)
+        // 换边、开关 BPM 框的途中框滑过去，节奏条跟着挪、跟着伸缩
+        var occupied = l.PanelWidth * l.Pose.Bpm;
+        DrawTrack(f, l, s, new Rect(Mathf.Round(occupied * (1 - l.Pose.Right)), l.BarY, Screen.width - occupied, l.RowHeight));
+    }
+
+    /// <summary>太鼓条的分隔线：在横条靠屏幕中间的那一边。</summary>
+    public static void DrawLine(OverlayLayout l)
+    {
+        var lineY = l.TaikoBottom ? l.BarY : l.BarY + l.RowHeight - (2 * l.Scale);
+        Painter.Rect(new Rect(0, lineY, Screen.width, 2 * l.Scale), new Color(0.3f, 0.3f, 0.34f));
+    }
+
+    /// <summary>BPM 与剩余时间（还有估算难度）：太鼓条开着时在横条里，关着时在下落面板那一列的顶端或底端。</summary>
+    public static void DrawBox(OverlayFrame f, OverlayLayout l, Settings s)
+    {
+        var box = new Rect(l.BoxX, l.BoxY, l.PanelWidth, l.RowHeight);
+        DrawBpmBox(f, l, box);
+        if (s.ShowDifficulty)
         {
-            var side = Screen.width - l.PanelWidth;
-            var u = side > 0 ? Mathf.Clamp01(box.x / side) : 0;
-            track = new Rect(Mathf.Round(l.PanelWidth * (1 - u)), l.BarY, side, l.TopHeight);
+            DifficultyBadge.Draw(box, l.Scale, f.DifficultyTier);
+        }
+    }
+
+    /// <summary>
+    /// 演示的说明：紧挨着横条（在上面时画在它下面，在下面时画在它上面；太鼓条关掉时贴着屏幕边），只占下落面板旁边空着的那一边，放不下就缩小字号。
+    /// 复现（用户录屏）：英文、韩文、日文的说明比中文长得多，原来从屏幕左边画起，前半句压在四轨面板底下
+    /// </summary>
+    public static void DrawCaption(OverlayFrame f, OverlayLayout l, Settings s)
+    {
+        if (f.Caption.Source.Length == 0)
+        {
+            return;
         }
 
-        if (s.ShowTaiko)
-        {
-            DrawTrack(f, l, s, track);
-        }
-
-        if (s.ShowBpm)
-        {
-            DrawBpmBox(f, l, box);
-            if (s.ShowDifficulty)
-            {
-                DifficultyBadge.Draw(box, l.Scale, f.DifficultyTier);
-            }
-        }
-
-        if (s.ShowTaiko)
-        {
-            // 分隔线在横条靠屏幕中间的那一边
-            var lineY = l.TaikoBottom ? l.BarY : l.BarY + l.TopHeight - (2 * l.Scale);
-            Painter.Rect(new Rect(0, lineY, Screen.width, 2 * l.Scale), new Color(0.3f, 0.3f, 0.34f));
-        }
-
-        if (f.Caption.Source.Length > 0)
-        {
-            // 说明紧挨着横条（在上面时画在它下面，在下面时画在它上面；太鼓条关掉时贴着屏幕边），只占下落面板旁边空着的那一边，放不下就缩小字号。
-            // 复现（用户录屏）：英文、韩文、日文的说明比中文长得多，原来从屏幕左边画起，前半句压在四轨面板底下
-            var pad = 16 * l.Scale;
-            var onRight = !l.LanesRight; // 面板在左边或中间：说明放右边那一块
-            var left = !s.ShowLanes ? pad : onRight ? l.PanelX + l.PanelWidth + pad : pad;
-            var right = !s.ShowLanes ? Screen.width - pad : onRight ? Screen.width - pad : l.PanelX - pad;
-            var strip = l.StripHeight;
-            var y = l.TaikoBottom ? Screen.height - strip - (30 * l.Scale) : strip + (6 * l.Scale);
-            Painter.FitText(new Rect(left, y, right - left, 24 * l.Scale), Lang.T(f.Caption),
-                Mathf.RoundToInt(18 * l.Scale), new Color(1f, 0.85f, 0.4f), true, onRight ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft);
-        }
+        var pad = 16 * l.Scale;
+        var onRight = !l.LanesRight; // 面板在左边或中间：说明放右边那一块
+        var left = !s.ShowLanes ? pad : onRight ? l.PanelX + l.PanelWidth + pad : pad;
+        var right = !s.ShowLanes ? Screen.width - pad : onRight ? Screen.width - pad : l.PanelX - pad;
+        var strip = l.StripHeight;
+        var y = l.TaikoBottom ? Screen.height - strip - (30 * l.Scale) : strip + (6 * l.Scale);
+        Painter.FitText(new Rect(left, y, right - left, 24 * l.Scale), Lang.T(f.Caption),
+            Mathf.RoundToInt(18 * l.Scale), new Color(1f, 0.85f, 0.4f), true, onRight ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft);
     }
 
     private static void DrawBpmBox(OverlayFrame f, OverlayLayout l, Rect box)

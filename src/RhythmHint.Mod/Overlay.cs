@@ -737,12 +737,35 @@ internal sealed class Overlay : MonoBehaviour
         var saved = GUI.matrix;
         try
         {
-            if (settings.ShowTaiko || settings.ShowBpm)
+            var row = Mathf.Max(pose.Taiko, pose.Bpm);
+            if (row > 0.001f)
             {
-                // 太鼓条从它那一边（上或下）滑入 / 滑出；关掉太鼓条、只剩 BPM 框时跟着下落面板滑
-                var away = (1 - p) * (layout.TopHeight + 8) * ((2 * pose.Bottom) - 1);
-                GUI.matrix = saved * Matrix4x4.Translate(settings.ShowTaiko ? new Vector3(0, away, 0) : Away(p));
-                TopBarView.Draw(Frame, layout, settings);
+                // 进出关卡时太鼓条从它那一边（上或下）滑入 / 滑出；只剩 BPM 框（太鼓条关着）时框跟着下落面板那一列滑。
+                // 设置里开关太鼓条、BPM 框时（pose.Taiko、pose.Bpm 在缓动）位置由 OverlayLayout 算，这里再按显示了多少淡入淡出
+                var away = new Vector3(0, (1 - p) * (layout.RowHeight + 8) * ((2 * pose.Bottom) - 1), 0);
+                GUI.matrix = saved * Matrix4x4.Translate(away);
+                if (pose.Taiko > 0.001f)
+                {
+                    Painter.Alpha = p * pose.Taiko;
+                    TopBarView.DrawStrip(Frame, layout, settings);
+                }
+
+                if (pose.Bpm > 0.001f)
+                {
+                    Painter.Alpha = p * pose.Bpm;
+                    GUI.matrix = saved * Matrix4x4.Translate(Vector3.Lerp(Away(p), away, pose.Taiko));
+                    TopBarView.DrawBox(Frame, layout, settings);
+                    GUI.matrix = saved * Matrix4x4.Translate(away);
+                }
+
+                if (pose.Taiko > 0.001f)
+                {
+                    Painter.Alpha = p * pose.Taiko;
+                    TopBarView.DrawLine(layout);
+                }
+
+                Painter.Alpha = p * row;
+                TopBarView.DrawCaption(Frame, layout, settings);
             }
 
             if (lanesShown > 0.001f)

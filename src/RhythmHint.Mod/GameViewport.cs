@@ -38,7 +38,8 @@ internal sealed class GameViewport
         }
 
         var layout = new OverlayLayout(settings, keys, PanelMotion.Pose);
-        // 让出来的区域取整到整数像素，和面板边缘对齐（不留缝）。面板在中间时左右都不让（盖在画面上）；换位置的途中按份量让
+        // 让出来的区域取整到整数像素，和面板边缘对齐（不留缝）。面板在中间时左右都不让（盖在画面上）；
+        // 换位置、开关下落面板和太鼓条的途中按份量让（StripHeight 跟着太鼓条显示了多少变）
         var lanes = Mathf.Round(layout.PanelWidth * PanelMotion.LanesShown * presence);
         var bar = Mathf.Round(layout.StripHeight * presence);
         var (left, right) = layout.SideMargins(lanes);

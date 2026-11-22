@@ -20,7 +20,7 @@
     <!-- 自动更新的国内加速镜像（2026-11-19：国内很多玩家连不上 GitHub，用户选了加速镜像站）：前缀 + 完整的 GitHub 地址，分号隔开。
          清单同时问 GitHub 和每个镜像，压缩包按这个顺序换着下；SHA-256 照样核对。镜像站是第三方，失效了改这里，
          改之前用 curl 试一下 前缀 + releases/latest/download/update.json（见 docs/开发说明.md「更新提示」） -->
-    <UpdateMirrors>https://ghfast.top/;https://gh-proxy.com/;https://ghproxy.net/</UpdateMirrors>
+    <UpdateMirrors>https://ghfast.top/;https://edgeone.gh-proxy.org/;https://ghproxy.net/</UpdateMirrors>
     <!-- 装进游戏的都是测试版（用户要求）：版本号带 -dev，在 UMM 列表和「关于」里一眼和发布版分开。
          UMM 解析版本时去掉非数字，1.3.0-dev 当作 1.3.0，检查更新不受影响。要装不带后缀的加 -p:VersionSuffix= -->
     <VersionSuffix Condition="'$(Deploy)' == 'true' and '$(VersionSuffix)' == ''">dev</VersionSuffix>

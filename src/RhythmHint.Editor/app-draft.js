@@ -38,7 +38,7 @@
       const p = progressOf(item);
       const badge = p.unsaved ? '<span class="state unsaved">' + esc(state.t('history.unsaved', p.unsaved)) + '</span>'
         : p.saved ? '<span class="state saved">' + esc(state.t('history.saved')) + '</span>' : '';
-      const sub = M.plain(item.artist);
+      const sub = M.plain(item.artist) + (item.keys !== 4 ? (item.artist ? ' · ' : '') + item.keys + 'K' : '');
       return '<button class="history-item' + (current ? ' current' : '') + '" data-index="' + i + '"' + (current ? ' aria-current="true"' : '') + '>'
         + '<span class="row1"><span class="title">' + esc(M.plain(item.song) || item.fileName) + '</span>' + badge + '</span>'
         + '<span class="row2"><span class="sub">' + esc(sub) + '</span><span class="when">' + esc(whenText(p.when)) + '</span></span>'
@@ -85,7 +85,7 @@
     }
     if (seq !== App.openSeq) return;
     try {
-      App.openDoc(() => M.fromSession(s), 'game');
+      App.openSession(s);
     } catch (err) {
       toast(state.t('toast.openFailed', errorText(err)), 'error');
     }

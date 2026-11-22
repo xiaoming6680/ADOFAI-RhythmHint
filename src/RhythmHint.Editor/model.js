@@ -109,7 +109,7 @@
   }
 
   function emptyExtras() {
-    return { keyLabels: ['D', 'F', 'J', 'K'], refs: { standard: new Map(), alternate: new Map() }, beats: [], tempo: [], path: [], fx: null,
+    return { keyLabels: ['D', 'F', 'J', 'K'], keyChoices: [], refs: { standard: new Map(), alternate: new Map() }, beats: [], tempo: [], path: [], fx: null,
       audio: null, fileName: '', saveFolder: '', saveStartIn: '', usedFile: '', language: '', roundNotes: false, sessionId: '', hitSound: '', fromGame: false };
   }
 
@@ -120,7 +120,7 @@
   function finish(fingering, extras) {
     const doc = Object.assign(emptyExtras(), extras, fingering);
     doc.notes.forEach(n => { n.orig = n.lanes.map(l => l.slice()); n.filled = n.filled === true; n.confirmed = false; n.auto = n.filled; });
-    if (!doc.fileName) doc.fileName = suggestedFileName(doc.meta);
+    if (!doc.fileName) doc.fileName = suggestedFileName(doc.meta, doc.keys);
     doc.signature = signature(doc.hits);
     remember(doc);
     return doc;
@@ -175,15 +175,32 @@
   /** 打开的手序文件的草稿名：谱面签名加文件内容的指纹（两份不同的文件不共用一份草稿；同一份文件换了名字再打开还能找到）。 */
   const fileDraftId = doc => doc.signature + '.' + hashText(fingeringText(doc));
 
-  /** 读游戏给的会话（session.js 里的 window.RHYTHMHINT_SESSION）。 */
-  function fromSession(s) {
+  /**
+   * 会话里带的几种键数（2026-11-22 用户：编辑器里能切换 4K、6K、8K）：会话本身是游戏里正在显示的那种，
+   * variants 是同一关的其他键数（各有自己的手序、文件名、键位、自动排法；轨道、音乐这些共用）。按键数从小到大。
+   */
+  function sessionVariants(s) {
+    const keysOf = f => (f && typeof f === 'object' ? (f.keys === undefined ? 4 : f.keys) : 0);
+    const list = [{ keys: keysOf(s.fingering), value: s }];
+    for (const v of Array.isArray(s.variants) ? s.variants : []) {
+      const keys = v && typeof v === 'object' ? keysOf(v.fingering) : 0;
+      if (int(keys) && keys > 0 && !list.some(x => x.keys === keys)) list.push({ keys, value: v });
+    }
+    return list.sort((a, b) => a.keys - b.keys);
+  }
+
+  /** 读游戏给的会话（session.js 里的 window.RHYTHMHINT_SESSION）。keys：打开会话里带的另一种键数（不给就是游戏里正在显示的）。 */
+  function fromSession(s, keys) {
     need(s && s.format === SESSION_FORMAT, 'notSession');
-    const fingering = parseFingering(s.fingering);
-    const auto = Array.isArray(s.fromAuto) ? s.fromAuto : [];
+    const variants = sessionVariants(s);
+    const k = (keys && variants.find(v => v.keys === keys) || variants.find(v => v.value === s)).value; // 和键数有关的字段从这里读
+    const fingering = parseFingering(k.fingering);
+    const auto = Array.isArray(k.fromAuto) ? k.fromAuto : [];
     fingering.notes.forEach((n, i) => { n.filled = auto[i] === 1 || auto[i] === true; });
-    const refs = { standard: refMap(s.references && s.references.standard), alternate: refMap(s.references && s.references.alternate) };
+    const refs = { standard: refMap(k.references && k.references.standard), alternate: refMap(k.references && k.references.alternate) };
     return finish(fingering, {
-      keyLabels: Array.isArray(s.keyLabels) && s.keyLabels.length === fingering.keys ? s.keyLabels.map(String) : defaultLabels(fingering.keys),
+      keyChoices: variants.map(v => v.keys),
+      keyLabels: Array.isArray(k.keyLabels) && k.keyLabels.length === fingering.keys ? k.keyLabels.map(String) : defaultLabels(fingering.keys),
       refs,
       beats: Array.isArray(s.beats) ? s.beats.filter(b => Array.isArray(b) && finite(b[0])).map(b => ({ time: b[0], measure: b[1] === 1 })) : [],
       tempo: Array.isArray(s.tempo) ? s.tempo.filter(b => Array.isArray(b) && finite(b[0]) && finite(b[1]) && b[1] > 0).map(b => ({ time: b[0], bpm: b[1] })) : [],
@@ -198,16 +215,16 @@
         calibration: finite(s.audio.calibration) ? s.audio.calibration : 0, // 游戏的画面校准（秒）：编辑器照样补
         peaksPerSecond: int(s.audio.peaksPerSecond) ? s.audio.peaksPerSecond : 0, peaks: decodePeaks(s.audio.peaks),
       } : null,
-      fileName: typeof s.fileName === 'string' ? s.fileName : '',
+      fileName: typeof k.fileName === 'string' ? k.fileName : '',
       saveFolder: typeof s.saveFolder === 'string' ? s.saveFolder : '',
       // 选文件夹时从哪打开：游戏装在浏览器不让写的地方时，Mod 让编辑器存到文档里的中转文件夹
       saveStartIn: s.saveStartIn === 'documents' ? 'documents' : '',
-      usedFile: typeof s.usedFile === 'string' ? s.usedFile : '',
+      usedFile: typeof k.usedFile === 'string' ? k.usedFile : '',
       language: typeof s.language === 'string' ? s.language : '',
       modVersion: typeof s.modVersion === 'string' ? s.modVersion : '', // 导出这份会话的 Mod 版本（关于里显示）
       roundNotes: s.roundNotes === true,
       fx: s.fx && typeof s.fx === 'object' && !Array.isArray(s.fx) ? s.fx : null, // 轨道和镜头事件（trackfx.js 重放）
-      sessionId: typeof s.id === 'string' ? s.id : '', // 这一关在「历史」里的 Id（谱面指纹），草稿按它存
+      sessionId: typeof k.id === 'string' ? k.id : '', // 这一关在「历史」里的 Id（谱面指纹，6K、8K 带 -6k、-8k），草稿按它存
       hitSound: typeof s.hitSound === 'string' ? s.hitSound : '',
       fromGame: true,
     });
@@ -220,8 +237,11 @@
     return finish(parseFingering(obj), { keyLabels: defaultLabels(obj.keys || 4) });
   }
 
+  // 游戏里各键数的默认键位（同 Mod 的 Settings.KeyLabels、KeyLabels6、KeyLabels8）
+  const DEFAULT_LABELS = { 4: ['D', 'F', 'J', 'K'], 6: ['S', 'D', 'F', 'J', 'K', 'L'], 8: ['A', 'S', 'D', 'F', 'J', 'K', 'L', ';'] };
+
   function defaultLabels(keys) {
-    return keys === 4 ? ['D', 'F', 'J', 'K'] : Array.from({ length: keys }, (_, i) => String(i + 1));
+    return DEFAULT_LABELS[keys] ? DEFAULT_LABELS[keys].slice() : Array.from({ length: keys }, (_, i) => String(i + 1));
   }
 
   /** 参考排法：按「第一块砖」查；只有分组和当前音符一样（同一组砖）时才能对照、套用。 */
@@ -252,9 +272,10 @@
 
   function plain(text) { return String(text || '').replace(/<[^>]*>/g, '').trim(); }
 
-  function suggestedFileName(meta) {
+  /** 「曲师 - 曲名.json」；不是 4 键的后面加「 6K」「 8K」（同一首歌的 4K、6K 手序不撞名，同 CustomFingering.SuggestedFileName）。 */
+  function suggestedFileName(meta, keys = 4) {
     const song = plain(meta.song), artist = plain(meta.artist);
-    return (cleanFileName(artist && song ? artist + ' - ' + song : song) || 'fingering') + '.json';
+    return (cleanFileName(artist && song ? artist + ' - ' + song : song) || 'fingering') + (keys !== 4 ? ' ' + keys + 'K' : '') + '.json';
   }
 
   const RESERVED_NAME = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])\s*(\.|$)/i; // Windows 的保留名（带扩展名也不行），同 CustomFingering.ReservedName
@@ -282,12 +303,13 @@
     return k <= 1 ? name : name.replace(/\.json$/i, '') + ' (' + k + ').json';
   }
 
-  /** 已有的这份文件是不是这一关的手序：认得同一份谱面指纹（charts 有重合）。读不出来的不算。 */
+  /** 已有的这份文件是不是这一关的手序：认得同一份谱面指纹（charts 有重合）、键数也一样（没写当 4）。读不出来的不算。 */
   function sameLevelFile(doc, text) {
     let obj;
     try { obj = JSON.parse(text); } catch (e) { return false; } // 读不出来的不是这一关的：不覆盖
     const mine = new Set(doc.meta.charts || []);
-    return !!obj && obj.format === FILE_FORMAT && Array.isArray(obj.charts) && obj.charts.some(c => mine.has(c));
+    return !!obj && obj.format === FILE_FORMAT && Array.isArray(obj.charts) && obj.charts.some(c => mine.has(c))
+      && (obj.keys === undefined ? 4 : obj.keys) === doc.keys;
   }
 
   /**
@@ -758,7 +780,7 @@
   }
 
   const RECENT_FORMAT = 'rhythmhint-editor-recent';
-  const SAFE_ID = /^[0-9]+-[0-9a-f]+$/;
+  const SAFE_ID = /^[0-9]+-[0-9a-f]+(-[0-9]+k)?$/; // 同 SessionLibrary.IdPattern：6K、8K 的带「-6k」「-8k」
 
   /**
    * 「历史」里的各关（recent/index.js 里的 window.RHYTHMHINT_RECENT，Mod 的 SessionLibrary 写）：新的在前。
@@ -772,6 +794,7 @@
         && (!e.audio || (typeof e.audio === 'string' && e.audio.startsWith(e.id + '-') && !/[\\/]/.test(e.audio))))
       .map(e => ({
         id: e.id, song: text(e.song), artist: text(e.artist), charter: text(e.charter), notes: int(e.notes) ? e.notes : 0,
+        keys: int(e.keys) && e.keys > 0 ? e.keys : 4,
         session: e.session, audio: text(e.audio), fileName: text(e.fileName), exported: finite(e.exported) ? e.exported : 0,
       }))
       .sort((a, b) => b.exported - a.exported);
@@ -779,7 +802,7 @@
 
   return {
     FILE_FORMAT, SESSION_FORMAT, MAX_FILE_BYTES, FingeringError, parseFingering, fromSession, fromFileText, toFileText, parseRecent,
-    suggestedFileName, cleanFileName, numberedFileName, sameLevelFile, saveName, signature, ops, History, jacks, noteValue, secondsPerBeat, stats, refLanes, laneKey,
+    defaultLabels, suggestedFileName, cleanFileName, numberedFileName, sameLevelFile, saveName, signature, ops, History, jacks, noteValue, secondsPerBeat, stats, refLanes, laneKey,
     isChanged, handOf, draftOf, draftChange, draftMeta, draftConfirmed, draftsToDrop, draftMatches, undoRestore, untouched, remember, plain,
     baseFor, baseOf, fileDraftId,
     markReview, confirm, reviewList, nextReview, keyCodeOf, laneOfKey, isModifier, keyDisplay, shortcutClashes,

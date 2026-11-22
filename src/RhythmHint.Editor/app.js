@@ -79,6 +79,12 @@
     $('fSong').textContent = M.plain(meta.song) || '—';
     $('fArtist').textContent = M.plain(meta.artist) || '—';
     $('fCharter').textContent = M.plain(meta.charter) || '—';
+    // 键数：从游戏打开的关卡带着 4K、6K、8K 几种，点一下切换（2026-11-22 用户）；手序文件只有它自己的键数
+    const choices = doc ? (doc.keyChoices.length ? doc.keyChoices : [doc.keys]) : [];
+    const fixed = choices.length < 2 || !state.gameSession;
+    $('fKeys').title = doc ? state.t(fixed ? 'file.keysFixed' : 'file.keysSwitch') : '';
+    $('fKeys').innerHTML = choices.length ? choices.map(k => '<button class="chip' + (k === doc.keys ? ' on' : '') + '" data-keys="' + k + '"'
+      + (fixed || k === doc.keys ? ' disabled' : '') + ' aria-pressed="' + (k === doc.keys) + '">' + k + 'K</button>').join('') : '—';
     if (document.activeElement !== $('fAuthor')) $('fAuthor').value = meta.author;
     if (document.activeElement !== $('fComment')) $('fComment').value = meta.comment;
     if (document.activeElement !== $('fName')) $('fName').value = doc ? doc.fileName.replace(/\.json$/i, '') : '';
@@ -102,11 +108,23 @@
   $('fName').addEventListener('change', e => {
     if (!state.doc) return;
     // 输入框里只写名字，.json 固定显示在框里；控制字符、路径符号、Windows 保留名照建议名一样处理
-    const name = M.cleanFileName(e.target.value.trim().replace(/\.json$/i, '')) || M.suggestedFileName(state.doc.meta).replace(/\.json$/i, '');
+    const name = M.cleanFileName(e.target.value.trim().replace(/\.json$/i, '')) || M.suggestedFileName(state.doc.meta, state.doc.keys).replace(/\.json$/i, '');
     e.target.value = name;
     if (state.doc.fileName === name + '.json') return;
     state.doc.fileName = name + '.json';
     markMetaDirty(); // 换了名字还没存：游戏里还是原来那个文件。文件名也进草稿，从历史接着改时沿用
+  });
+  $('fKeys').addEventListener('click', e => {
+    const b = e.target.closest('button[data-keys]');
+    const keys = b ? Number(b.dataset.keys) : 0;
+    if (!keys || !state.doc || keys === state.doc.keys || !state.gameSession) return;
+    App.writeDraft(); // 这一种键数改到一半的先存进草稿，切回来接着改
+    try {
+      App.openSession(state.gameSession, keys);
+      toast(state.t('toast.keys', keys), 'ok');
+    } catch (err) {
+      toast(state.t('toast.openFailed', errorText(err)), 'error');
+    }
   });
   function markMetaDirty() { App.metaDirty = true; App.metaEdits++; renderHeader(); App.scheduleDraft(); }
   $('copyFolder').addEventListener('click', e => copy($('fFolder').textContent, e.currentTarget));
@@ -167,7 +185,7 @@
   App.zoomSlider.value = String(App.sliderOf(state.pxPerSec));
   document.querySelectorAll('[data-panel-body]').forEach(el => { el.hidden = true; });
   if (session) {
-    try { App.openDoc(() => M.fromSession(session), 'game'); } catch (e) { toast(state.t('toast.openFailed', errorText(e)), 'error'); $('empty').hidden = false; }
+    try { App.openSession(session); } catch (e) { toast(state.t('toast.openFailed', errorText(e)), 'error'); $('empty').hidden = false; }
   } else {
     $('empty').hidden = false;
     renderHeader();

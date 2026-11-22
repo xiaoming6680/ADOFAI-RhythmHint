@@ -57,11 +57,24 @@
 
   // ---------- 编辑键位（用户要求能在编辑器里自定义；默认和游戏里的键位一样） ----------
   let capturing = null; // 正在等新键的轨道
-  /** 四条轨道的键（游戏里的键名，可能是 Keypad4、LeftShift 这样的 Unity 键名）。 */
+  /**
+   * 各条轨道的键（游戏里的键名，可能是 Keypad4、LeftShift 这样的 Unity 键名）。自己改过的按键数分开记：4 键的还是 prefs.laneKeys
+   * （以前的版本记在这里），6、8 键的记在 prefs.laneKeysByCount 里，换着打开 4K、6K 的手序不会互相冲掉（2026-11-22）。
+   */
   function laneLabels() {
     const doc = state.doc;
     if (!doc) return ['D', 'F', 'J', 'K'];
-    return Array.isArray(prefs.laneKeys) && prefs.laneKeys.length === doc.keys ? prefs.laneKeys : doc.keyLabels;
+    const mine = doc.keys === 4 ? prefs.laneKeys : (prefs.laneKeysByCount || {})[doc.keys];
+    return Array.isArray(mine) && mine.length === doc.keys ? mine : doc.keyLabels;
+  }
+  /** 记下这个键数自己改的键（null 是换回游戏里的键位）。 */
+  function setLaneLabels(labels) {
+    if (state.doc.keys === 4) prefs.laneKeys = labels;
+    else {
+      const byCount = Object.assign({}, prefs.laneKeysByCount || {});
+      if (labels) byCount[state.doc.keys] = labels; else delete byCount[state.doc.keys];
+      prefs.laneKeysByCount = byCount;
+    }
   }
   /** 键帽上显示的字（和游戏里一样缩写：Keypad4 → Num4）；没指定键的轨道显示 —。 */
   const shownLabels = () => laneLabels().map(k => M.keyDisplay(k) || '—');
@@ -103,7 +116,7 @@
       const k = key.toUpperCase(), other = labels.findIndex(x => x.toUpperCase() === k);
       if (other >= 0 && other !== capturing) labels[other] = labels[capturing];
       labels[capturing] = k;
-      prefs.laneKeys = labels;
+      setLaneLabels(labels);
       prefs.clashTold = labels.join(' '); // 在这里提示过了，下次打开不再提示
       savePrefs();
       if (M.shortcutClashes([k]).length) toast(state.t('keys.clash', M.keyDisplay(k)), 'warn', null, 10000);
@@ -113,7 +126,7 @@
     App.renderShortcuts();
     renderInspector();
   }
-  $('keysReset').addEventListener('click', () => { prefs.laneKeys = null; savePrefs(); capturing = null; renderKeymap(); App.renderShortcuts(); renderInspector(); tellClashes(); });
+  $('keysReset').addEventListener('click', () => { if (state.doc) setLaneLabels(null); savePrefs(); capturing = null; renderKeymap(); App.renderShortcuts(); renderInspector(); tellClashes(); });
   $('autoNext').checked = prefs.autoNext;
   $('autoNext').addEventListener('change', e => { prefs.autoNext = e.target.checked; savePrefs(); });
 
@@ -219,7 +232,7 @@
         + '<dt>' + esc(state.t('insp.time')) + '</dt><dd class="mono">' + esc(fmt(one.time)) + '</dd>'
         + '<dt>' + esc(state.t('insp.tile')) + '</dt><dd class="mono">#' + one.tile + (one.lastTile !== one.tile ? '–' + one.lastTile : '') + '</dd>'
         + '<dt>' + esc(state.t('insp.gap')) + '</dt><dd>' + esc(state.t('insp.gapValue', ms(prev, one), ms(one, next))) + '</dd>'
-        + '<dt>' + esc(state.t('insp.kind')) + '</dt><dd>' + esc(state.t('kind.' + Math.min(4, one.lanes.length))) + '</dd>'
+        + '<dt>' + esc(state.t('insp.kind')) + '</dt><dd>' + esc(state.t('kind.' + Math.min(8, one.lanes.length))) + '</dd>'
         + (tags.length ? '<dt>' + esc(state.t('insp.source')) + '</dt><dd>' + tags.join(' ') + '</dd>' : '')
         + '</dl>';
       if (one.auto) html += '<div class="note-callout warn">' + esc(state.t('insp.autoNote')) + '</div>'; // 还要检查时才提醒

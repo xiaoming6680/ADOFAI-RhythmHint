@@ -57,6 +57,21 @@
     App.tellClashes();
   }
 
+  /**
+   * 打开游戏给的会话（session.js 或历史里的一关）。keys：换成会话里带的另一种键数（左边「文件」里切换，2026-11-22）；
+   * 记下会话，切换键数时从它重新打开。读不出来时抛出，原来的照旧。
+   */
+  function openSession(s, keys) {
+    const previous = state.gameSession;
+    state.gameSession = s; // 先记下：打开时画的文件面板要知道能不能切换
+    try {
+      return openDoc(() => M.fromSession(s, keys), 'game');
+    } catch (e) {
+      state.gameSession = previous;
+      throw e;
+    }
+  }
+
   function openFromText(text, name) {
     try {
       const doc = openDoc(() => {
@@ -64,6 +79,8 @@
         d.fileName = name || d.fileName;
         return d;
       }, 'file');
+      state.gameSession = null; // 手序文件的键数是固定的，不能切换
+      App.renderFilePanel();
       toast(state.t('toast.opened', doc.opened.fileName), 'ok'); // 打开的那个文件（草稿里记的文件名可能不一样）
     } catch (e) {
       toast(state.t('toast.openFailed', errorText(e)), 'error');
@@ -238,5 +255,5 @@
   $('hitBtn').addEventListener('click', () => setHitsound(!state.hitsound));
   setHitsound(state.hitsound);
 
-  Object.assign(App, { openDoc, askOpen, stepWaveform, renderAudioName });
+  Object.assign(App, { openDoc, openSession, askOpen, stepWaveform, renderAudioName });
 })(window.EditorApp);

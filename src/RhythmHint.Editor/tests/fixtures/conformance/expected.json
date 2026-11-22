@@ -229,6 +229,27 @@
     "hits": 2,
     "notes": 2
   },
+  "17-eight-keys.json": {
+    "keys": 8,
+    "leftHanded": true,
+    "hits": 3,
+    "notes": 3,
+    "noteLanes": [
+      [
+        7
+      ],
+      [
+        0
+      ],
+      [
+        0,
+        1,
+        2,
+        3,
+        4
+      ]
+    ]
+  },
   "90-lenient-comments.json": {
     "keys": 4,
     "leftHanded": false,

@@ -120,4 +120,9 @@ test('建议的文件名和 Mod 同一规则（见 CustomFingering.SuggestedFile
   assert.equal(name('...', ''), 'fingering.json');
   assert.equal(name('x'.repeat(79) + '\u{1F600}tail', ''), 'x'.repeat(79) + '.json');
   assert.equal(name('x'.repeat(78) + '\u{1F600}tail', ''), 'x'.repeat(78) + '\u{1F600}.json');
+  // 不是 4 键的带键数（同 CustomFingering.SuggestedFileName，ManyKeysFingeringTests.FileNamesCarryTheKeyCount）
+  assert.equal(M.suggestedFileName({ song: 'Song', artist: 'Artist' }, 6), 'Artist - Song 6K.json');
+  assert.equal(M.suggestedFileName({ song: 'CON', artist: '' }, 8), '_CON 8K.json');
+  assert.equal(M.suggestedFileName({ song: 'x'.repeat(90), artist: '' }, 6), 'x'.repeat(80) + ' 6K.json');
+  assert.equal(M.suggestedFileName({ song: 'Song', artist: 'Artist' }, 4), 'Artist - Song.json');
 });

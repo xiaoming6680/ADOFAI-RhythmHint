@@ -19,7 +19,7 @@
   const PREFS_KEY = 'rhythmhint.editor.prefs';
   const prefs = Object.assign({
     language: '', beats: true, wave: true, gaps: true, ghost: true, track: true, standard: true, alternate: true,
-    jackMs: 150, volume: 50, refScale: 50, noteStyle: null, hitsoundOn: true, pxPerSec: 240, speed: 1, songOffsets: {}, laneKeys: null, autoNext: true, wayBackTold: false, trackZoom: 1, trackBig: false,
+    jackMs: 150, volume: 50, refScale: 50, noteStyle: null, hitsoundOn: true, pxPerSec: 240, speed: 1, songOffsets: {}, laneKeys: null, laneKeysByCount: null, autoNext: true, wayBackTold: false, trackZoom: 1, trackBig: false,
   }, readJson(PREFS_KEY) || {});
   function readJson(key) {
     try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { return null; } // 隐私模式下 localStorage 不可用：当作没有
@@ -43,7 +43,7 @@
   // ---------- 状态 ----------
   const session = window.RHYTHMHINT_SESSION;
   const state = {
-    doc: null, history: null, t: null, source: '',
+    doc: null, history: null, t: null, source: '', gameSession: null, // gameSession：从游戏（或历史）打开的会话，切换键数时从它重新打开
     time: 0, pxPerSec: prefs.pxPerSec, playing: false,
     selection: new Set(), hover: null, preview: null, jacks: new Set(),
     show: { beats: prefs.beats, wave: prefs.wave, gaps: prefs.gaps, ghost: prefs.ghost, standard: prefs.standard, alternate: prefs.alternate },

@@ -31,6 +31,25 @@
 
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
+
+/* 滚动条（2026-11-22 用户：系统默认的灰条带上下箭头太突兀，整个编辑器统一）：细、圆头、没有箭头，平时淡，悬停变亮、按住是主题色 */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+::-webkit-scrollbar-thumb {
+  min-height: 36px;
+  border: 3px solid transparent;
+  border-radius: 10px;
+  background-color: rgba(255, 255, 255, 0.14);
+  background-clip: padding-box;
+  transition: background-color 0.15s;
+}
+::-webkit-scrollbar-thumb:hover { border-width: 2px; background-color: rgba(255, 255, 255, 0.28); }
+::-webkit-scrollbar-thumb:active { border-width: 2px; background-color: var(--accent); }
+/* 不认上面写法的浏览器（Firefox）用标准属性；认的浏览器不能同时写，写了它会改用系统样式 */
+@supports not selector(::-webkit-scrollbar) {
+  * { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.2) transparent; }
+}
 body {
   display: grid;
   grid-template-rows: 48px 1fr;
@@ -213,6 +232,9 @@ svg .fill, svg.fill { fill: currentColor; stroke: none; }
 .facts { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; }
 .facts dt { color: var(--text-3); }
 .facts dd { margin: 0; overflow-wrap: anywhere; }
+.key-switch { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.key-switch .chip:disabled { cursor: default; }
+.key-switch .chip:disabled:not(.on) { opacity: 0.45; }
 .field { display: flex; flex-direction: column; gap: 6px; color: var(--text-2); font-size: 12.5px; }
 .field > span:first-child { font-weight: 500; }
 

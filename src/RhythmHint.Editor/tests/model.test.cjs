@@ -28,6 +28,27 @@ test('reads the session the mod writes', () => {
   assert.ok(doc.notes.some(n => n.lanes.some(l => l[1] > 0)), 'the sample has a hold');
 });
 
+test('a session carries the other key counts and opens any of them', () => {
+  // 2026-11-22 用户：编辑器左边显示几 K，能切换。会话本身是游戏里显示的键数，variants 是同一关的其他键数
+  const four = M.fromSession(session());
+  assert.equal(four.keys, 4);
+  assert.deepEqual(four.keyChoices, [4, 6]);
+  const six = M.fromSession(session(), 6);
+  assert.equal(six.keys, 6);
+  assert.deepEqual(six.keyChoices, [4, 6]);
+  assert.match(six.sessionId, /-6k$/);
+  assert.equal(six.fileName, 'Sample Artist - Sample Song 6K.json');
+  assert.deepEqual(six.keyLabels, ['S', 'D', 'F', 'J', 'K', 'L']);
+  assert.equal(six.notes.length, four.notes.length); // 提示怎么合不随键数变
+  assert.ok(six.refs.standard.size > 0);
+  assert.equal(six.audio, four.audio === null ? null : six.audio); // 音乐、轨道几种键数共用
+  assert.deepEqual(six.path, four.path);
+  assert.equal(M.fromSession(session(), 8).keys, 4); // 会话里没有的键数：照旧打开游戏里显示的那种
+  const old = session();
+  delete old.variants; // 旧版 Mod 写的会话只有一种
+  assert.deepEqual(M.fromSession(old).keyChoices, [4]);
+});
+
 test('keeps timing for a manually selected recording and defaults old sessions to zero calibration', () => {
   const input = session();
   input.audio = { file: '', offset: -1.5, calibration: -0.09 };
@@ -292,6 +313,11 @@ test('saving does not overwrite another chart\'s fingering with the same name', 
   assert.equal(await M.saveName(doc, folder({ [base]: other, [second]: other })), third);
   doc.usedFile = base;
   assert.equal(await M.saveName(doc, folder({ [base]: '{ broken' })), base, 'the file the game uses for this level');
+  // 同一关、别的键数的手序也不覆盖（2026-11-22：4K、6K 各一份）
+  doc.usedFile = '';
+  const sixKeys = mine.replace(/"keys":4/, '"keys":6');
+  assert.notEqual(sixKeys, mine);
+  assert.equal(await M.saveName(doc, folder({ [base]: sixKeys })), second, 'same level, other key count: keep it');
 });
 
 test('file names are safe and readable', () => {
@@ -592,4 +618,15 @@ test('saving marks the step that was saved, not the one reached meanwhile', () =
   assert.equal(h.dirty, true);
   h.undo();
   assert.equal(h.dirty, false);
+});
+
+test('6K and 8K sessions get their own key names, history ids and file names', () => {
+  // 2026-11-22：6K、8K 默认键位同游戏（S D F J K L、A S D F J K L ;）；历史、草稿按「谱面指纹-6k」分开，4K 的编号不变
+  assert.deepEqual(M.defaultLabels(4), ['D', 'F', 'J', 'K']);
+  assert.deepEqual(M.defaultLabels(6), ['S', 'D', 'F', 'J', 'K', 'L']);
+  assert.deepEqual(M.defaultLabels(8), ['A', 'S', 'D', 'F', 'J', 'K', 'L', ';']);
+  assert.deepEqual(M.defaultLabels(2), ['1', '2']);
+  const item = (id, keys) => ({ id, session: id + '.js', song: 'S', exported: 1, keys });
+  const recent = M.parseRecent({ format: 'rhythmhint-editor-recent', items: [item('9-abc', undefined), item('9-abc-6k', 6), item('9-abc-x', 6)] });
+  assert.deepEqual(recent.map(r => [r.id, r.keys]), [['9-abc', 4], ['9-abc-6k', 6]]);
 });

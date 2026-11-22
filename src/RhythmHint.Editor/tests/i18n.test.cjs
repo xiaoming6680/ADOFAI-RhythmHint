@@ -23,7 +23,7 @@ function usedKeys() {
     for (const m of read(file).matchAll(/(['"`])([a-zA-Z]+\.[A-Za-z0-9]+)\1/g)) if (PREFIXES.has(m[2].split('.')[0])) used.add(m[2]);
   }
   // 拼出来的键：'kind.' + 键数（app.js 检查器），'err.' + FingeringError 的代码（app.js errorText，代码从 model.js 里找）
-  [1, 2, 3, 4].forEach(n => used.add('kind.' + n));
+  [1, 2, 3, 4, 5, 6, 7, 8].forEach(n => used.add('kind.' + n));
   for (const m of read('model.js').matchAll(/(?:need\([^\n]*?,\s*|new FingeringError\()'([a-zA-Z]+)'/g)) used.add('err.' + m[1]);
   return used;
 }

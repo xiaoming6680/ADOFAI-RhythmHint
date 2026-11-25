@@ -92,7 +92,7 @@ On the Fingering page you can also:
 Besides 4K (D F J K) there are 6K (S D F J K L) and 8K (A S D F J K L ;). By default the key count is chosen from the estimated difficulty: P tiers stay 4K, 6K from G1, 8K from U6. When a custom fingering is in use, it is shown with its own key count.
 
 - **Slow notes on the right index finger, medium ones alternating the two index fingers**, as easy to pick up as 4K
-- **Fast runs roll across both hands**: the run is split between the hands, each hand rolling from the outside in to the index finger. Three or four notes use two fingers per hand, longer runs the whole hand: **L K J S D F** in 6K, **; L K J A S D F** in 8K
+- **Fast runs roll on one hand first**: from the outside in to the index finger, and only once every finger of that hand has played does the run move to the other hand, so short runs keep off the middle whenever they can. Two notes in 6K are **K J**, three **L K J**; long runs alternate whole hands: **L K J S D F** in 6K, **; L K J A S D F** in 8K
 - **Chords stay on one hand when it has the fingers**: triples in 6K and quads in 8K are played with one hand
 - **A finger that has no time to rest is swapped out**: for example, if the same key would come again right after a double, a rested finger takes it
 

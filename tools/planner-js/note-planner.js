@@ -99,8 +99,8 @@
   }
 
   // 6K / 8K (C# NotePlanner.ManyKeys.cs PlanManyKeys): a planner of its own, 4K never comes here. Slow notes on the right index,
-  // medium ones alternate the index fingers, fast runs (gaps within R/2) alternate hands in groups rolled outer to inner,
-  // chords stay on one hand while it has fingers enough.
+  // medium ones alternate the index fingers, fast runs (gaps within R/2) roll outer to inner on one hand and only move to the other
+  // hand once every finger of the first has played, chords stay on one hand while it has fingers enough.
   function PlanManyKeys(tiles, o, layout) {
     const reviewPreference = o.Style === 'ReviewPreferenceV1' && !tiles.some(hit => hit.holdSeconds > 0);
     const moments = Moments(tiles, o), focus = FocusChords(moments, o, reviewPreference), runEnd = FastRuns(moments, focus, o);
@@ -162,13 +162,15 @@
     return end;
   }
   const distance = (a, b) => Math.min(...a.lanes.flatMap(x => b.lanes.map(y => Math.abs(x.lane - y.lane))));
-  // C# RunLanes: candidates are both start hands (and, when the last group is one note, that note on the middle finger);
-  // a start jacking the previous note is out, the rest are scored end-on-yield-index 12, start inner-to-outer 10,
-  // previous note left lone 5, middle finger 3, not the natural start hand 1.
+  // C# RunLanes: groups are one whole hand (2026-11-25: fewer hand switches, roll on one side). Candidates are both start hands (and, when
+  // the last group is one note, that note on the middle finger); a start jacking the previous note is out, the rest are scored
+  // 20 per press whose finger has not rested R/2 (not when only index fingers are used), end-on-yield-index 12, start inner-to-outer 10,
+  // previous note left lone 5, middle finger 3, not the natural start hand 1. When every one-hand candidate tires a finger, the old
+  // half-and-half split is tried too and kept when it scores no worse.
   function RunLanes(moments, start, end, startHand, notes, focus, preferred, layout, o, reviewPreference) {
     const n = end - start + 1;
-    const group = !o.UseRoll || (reviewPreference && ReviewShortRun(moments, start, end, o)) ? 1 : Math.min(Math.max(Math.floor((n + 1) / 2), 1), layout.per);
-    const assign = hand => Array.from({ length: n }, (_, k) => {
+    const indexOnly = !o.UseRoll || (reviewPreference && ReviewShortRun(moments, start, end, o));
+    const assign = (hand, group) => Array.from({ length: n }, (_, k) => {
       const g = Math.floor(k / group), size = Math.min(group, n - g * group), pos = k % group;
       return layout.lane(g % 2 === 0 ? hand : 1 - hand, o.OuterRoll ? size - 1 - pos : pos);
     });
@@ -180,20 +182,41 @@
       && layout.handOf(firstLane(last)) === layout.handOf(lane) && layout.finger(lane) > layout.finger(firstLane(last));
     const isolatesLast = lane => last !== null && beforeLast !== null && time - last.time <= LinkGap && last.time - beforeLast.time <= LinkGap
       && distance(beforeLast, last) >= 2 && Math.min(...last.lanes.map(item => Math.abs(item.lane - lane))) >= 2;
-    let best = null, bestPenalty = Infinity;
-    for (const hand of [startHand, 1 - startHand]) {
-      const plain = assign(hand), lastAlone = n > 1 && (n - 1) % group === 0;
-      for (const middle of lastAlone ? [false, true] : [false]) {
-        const lanes = plain.slice();
-        if (middle) lanes[n - 1] = layout.lane(layout.handOf(lanes[n - 1]), 1);
-        if (Blocked(lanes[0], time, last, o)) continue;
-        const penalty = (endFits(lanes) ? 0 : 12) + (innerToOuter(lanes[0]) ? 10 : 0) + (isolatesLast(lanes[0]) ? 5 : 0)
-          + (middle ? 3 : 0) + (hand === startHand ? 0 : 1);
-        if (penalty < bestPenalty) { best = lanes; bestPenalty = penalty; }
+    const released = (lanes, k) => {
+      for (let j = k - 1; j >= 0; j--) if (lanes[j] === lanes[k]) return moments[start + j][0].time;
+      for (let j = notes.length - 1; j >= 0 && time - notes[j].time <= o.ResetWindow + Epsilon; j--) {
+        const item = notes[j].lanes.find(x => x.lane === lanes[k]);
+        if (item) return notes[j].time + item.holdSeconds;
       }
+      return -Infinity;
+    };
+    const tiredCount = lanes => lanes.reduce((count, _, k) => count + (moments[start + k][0].time - released(lanes, k) < o.ResetWindow / 2 - Epsilon ? 1 : 0), 0);
+    const best = group => {
+      let result = { lanes: null, penalty: Infinity, tired: 0 };
+      for (const hand of [startHand, 1 - startHand]) {
+        const plain = assign(hand, group), lastAlone = n > 1 && (n - 1) % group === 0;
+        for (const middle of lastAlone ? [false, true] : [false]) {
+          const lanes = plain.slice();
+          if (middle) lanes[n - 1] = layout.lane(layout.handOf(lanes[n - 1]), 1);
+          if (Blocked(lanes[0], time, last, o)) continue;
+          const tired = indexOnly ? 0 : tiredCount(lanes);
+          const penalty = 20 * tired + (endFits(lanes) ? 0 : 12) + (innerToOuter(lanes[0]) ? 10 : 0) + (isolatesLast(lanes[0]) ? 5 : 0)
+            + (middle ? 3 : 0) + (hand === startHand ? 0 : 1);
+          if (penalty < result.penalty) result = { lanes, penalty, tired };
+        }
+      }
+      return result;
+    };
+    const full = indexOnly ? 1 : layout.per;
+    let chosen = best(full);
+    const split = Math.min(Math.max(Math.floor((n + 1) / 2), 1), layout.per);
+    if (!indexOnly && split !== full && (chosen.lanes === null || chosen.tired > 0)) {
+      const halves = best(split);
+      if (halves.lanes !== null && halves.penalty <= chosen.penalty) chosen = halves;
     }
-    if (best === null) { best = assign(startHand); best[0] = NearestFreeLane(best[0], time, o, last, layout); }
-    return best;
+    let lanes = chosen.lanes;
+    if (lanes === null) { lanes = assign(startHand, full); lanes[0] = NearestFreeLane(lanes[0], time, o, last, layout); }
+    return lanes;
   }
   // C# NotePlanner.Rest.cs RestFingers: a second pass over the 6K / 8K plan so every finger rests. A lane costs by how long since it was
   // released (under R/2 a lot, R/2..R a little, over R nothing) plus how far it is from the planned lane; a move may not leave a lone note.

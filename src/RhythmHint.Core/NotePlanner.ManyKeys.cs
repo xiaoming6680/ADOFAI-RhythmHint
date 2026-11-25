@@ -12,9 +12,9 @@ public static partial class NotePlanner
     /// <list type="bullet">
     /// <item>提示怎么合（多押、伪多押、双押砖）和 4K 一样（Moments），提示的个数、每个提示盖哪几块砖不随键数变</item>
     /// <item>慢（和上一下隔得超过 R）：右手食指；中速（R/2–R）：换另一只手的食指，左右手食指轮流</item>
-    /// <item>快连打（相邻都在 R/2 以内的一串单押）：整串分给两只手轮流，每只手一组、从外往内滚到食指（外轮关掉时从内往外）。
-    /// 两下是左右手各一下；三四下每组两根手指（K J D F）；再长每组用满一只手（6K L K J S D F，8K ; L K J A S D F）。
-    /// 前一下在 R 以内就从另一只手起，否则右手起；轮指关掉时只用两根食指</item>
+    /// <item>快连打（相邻都在 R/2 以内的一串单押）：先在一只手上从外往内滚到食指（外轮关掉时从内往外），这只手的手指都用过一遍还没完才换另一只手
+    /// （2026-11-25 用户：轮指少换手、尽量在一边轮完、不要跨越中间）。6K 两下 K J、三下 L K J、四下 L K J F；
+    /// 再长两只手整手轮流（6K L K J S D F，8K ; L K J A S D F）。前一下在 R 以内就从另一只手起，否则右手起；轮指关掉时只用两根食指</item>
     /// <item>多押：手指够就整组放在一只手上，从食指往外（6K 三押 J K L，8K 四押 J K L ;），不够的从另一只手的食指往外补。
     /// 优先右手（多押用手选另一只手时左手），那只手刚按过、来不及才换手</item>
     /// <item>和 4K 一样：紧挨着多押的单押放另一只手的食指，前一下先用中指让开（不出现食指→中指）；
@@ -150,18 +150,17 @@ public static partial class NotePlanner
     }
 
     /// <summary>
-    /// 一串快连打每一下的轨道。整串分给两只手轮流，每只手一组从外往内滚到食指（外轮关掉时从内往外）；
-    /// 每组几根手指：两下 1 根（左右手各一下），三四下 2 根，再长用满一只手。
+    /// 一串快连打每一下的轨道。每组是一只手的全部手指，从外往内滚到食指（外轮关掉时从内往外）；这只手用满了才换另一只手，
+    /// 最后不够一只手的从食指往外数。原来每组是一串的一半（两下 J F、四下 K J D F），短串也跨中间；2026-11-25 用户要少换手、尽量在一边轮完。
+    /// 「尽量」：一只手上怎么排都有手指歇不到 R/2 又要按时（多押、密集单押刚按过那只手），再拿原来每组一半的分法比一比，不比一只手差就用它。
     /// 一般从 startHand 起手；和前后接不上（连按、21 式、孤立音符、占了紧接着那个让手单押要用的食指）时换另一只手起手。
     /// </summary>
     private static int[] RunLanes(List<List<TileHit>> moments, int start, int end, int startHand, List<PlannedNote> notes, int[] focus, int preferred,
         KeyLayout layout, FingeringOptions o, bool reviewPreference)
     {
         var n = end - start + 1;
-        var group = !o.UseRoll || (reviewPreference && ReviewShortRun(moments, start, end, o))
-            ? 1
-            : Math.Min(Math.Max((n + 1) / 2, 1), layout.FingersPerHand);
-        int[] Assign(int hand)
+        var indexOnly = !o.UseRoll || (reviewPreference && ReviewShortRun(moments, start, end, o));
+        int[] Assign(int hand, int group)
         {
             var lanes = new int[n];
             for (var k = 0; k < n; k++)
@@ -197,40 +196,85 @@ public static partial class NotePlanner
             && time - last.Time <= LayoutStats.DefaultLinkGap && last.Time - beforeLast.Time <= LayoutStats.DefaultLinkGap
             && LayoutStats.Distance(beforeLast, last) >= 2 && last.Lanes.Keys.Min(l => Math.Abs(l - lane)) >= 2;
 
-        // 两只手起手各一种；最后一组只有一下（落在食指）时还可以改用同一只手的中指，紧接着让手的单押按食指，从外往内（同 4K 的让手）。
-        // 起手和上一下连按的不要；剩下的按「最后一下占了让手要用的食指 12、起手 21 式 10、上一下成了孤立音符 5、改用中指 3、不是顺着起手 1」挑最小的
-        int[]? best = null;
-        var bestPenalty = int.MaxValue;
-        foreach (var hand in new[] { startHand, 1 - startHand })
+        // 这根手指上次松开的时间（往前看 R 以内的音符，再看这串里排在前面的几下）
+        double Released(int[] lanes, int k)
         {
-            var plain = Assign(hand);
-            var lastAlone = n > 1 && (n - 1) % group == 0;
-            foreach (var middle in lastAlone ? new[] { false, true } : new[] { false })
+            for (var j = k - 1; j >= 0; j--)
             {
-                var lanes = (int[])plain.Clone();
-                if (middle)
+                if (lanes[j] == lanes[k])
                 {
-                    lanes[n - 1] = layout.Lane(layout.HandOf(lanes[n - 1]), 1);
+                    return moments[start + j][0].Time;
                 }
+            }
 
-                if (Blocked(lanes[0], time, last, o))
+            for (var j = notes.Count - 1; j >= 0 && time - notes[j].Time <= o.ResetWindow + Epsilon; j--)
+            {
+                if (notes[j].Lanes.TryGetValue(lanes[k], out var hold))
                 {
-                    continue;
+                    return notes[j].Time + hold;
                 }
+            }
 
-                var penalty = (EndFits(lanes) ? 0 : 12) + (InnerToOuter(lanes[0]) ? 10 : 0) + (IsolatesLast(lanes[0]) ? 5 : 0)
-                    + (middle ? 3 : 0) + (hand == startHand ? 0 : 1);
-                if (penalty < bestPenalty)
+            return double.NegativeInfinity;
+        }
+
+        // 歇不到 R/2 又要按的下数（2026-11-25：一只手用满再换以后，紧跟在多押后面的快连打从多押那只手起手时，刚按过的手指隔 30 ms 又要按）
+        int Tired(int[] lanes) => Enumerable.Range(0, n).Count(k => moments[start + k][0].Time - Released(lanes, k) < (o.ResetWindow / 2) - Epsilon);
+
+        // 每组 group 根手指时挑起手：两只手起手各一种；最后一组只有一下（落在食指）时还可以改用同一只手的中指，紧接着让手的单押按食指，
+        // 从外往内（同 4K 的让手）。起手和上一下连按的不要；剩下的按「每有一下手指歇不够 20（只用食指时不算：两根食指轮流本来就这样）、
+        // 最后一下占了让手要用的食指 12、起手 21 式 10、上一下成了孤立音符 5、改用中指 3、不是顺着起手 1」挑最小的
+        (int[]? Lanes, int Penalty, int Tired) Best(int group)
+        {
+            (int[]? Lanes, int Penalty, int Tired) best = (null, int.MaxValue, 0);
+            foreach (var hand in new[] { startHand, 1 - startHand })
+            {
+                var plain = Assign(hand, group);
+                var lastAlone = n > 1 && (n - 1) % group == 0;
+                foreach (var middle in lastAlone ? new[] { false, true } : new[] { false })
                 {
-                    (best, bestPenalty) = (lanes, penalty);
+                    var lanes = (int[])plain.Clone();
+                    if (middle)
+                    {
+                        lanes[n - 1] = layout.Lane(layout.HandOf(lanes[n - 1]), 1);
+                    }
+
+                    if (Blocked(lanes[0], time, last, o))
+                    {
+                        continue;
+                    }
+
+                    var tired = indexOnly ? 0 : Tired(lanes);
+                    var penalty = (20 * tired) + (EndFits(lanes) ? 0 : 12) + (InnerToOuter(lanes[0]) ? 10 : 0) + (IsolatesLast(lanes[0]) ? 5 : 0)
+                        + (middle ? 3 : 0) + (hand == startHand ? 0 : 1);
+                    if (penalty < best.Penalty)
+                    {
+                        best = (lanes, penalty, tired);
+                    }
                 }
+            }
+
+            return best;
+        }
+
+        var full = indexOnly ? 1 : layout.FingersPerHand;
+        var chosen = Best(full);
+        var split = Math.Min(Math.Max((n + 1) / 2, 1), layout.FingersPerHand);
+        if (!indexOnly && split != full && (chosen.Lanes is null || chosen.Tired > 0))
+        {
+            // 一只手上有手指歇不够：原来每组一半的分法不比它差就用（两只手各分一半，「排完再顺一遍」的余地大）
+            var halves = Best(split);
+            if (halves.Lanes is not null && halves.Penalty <= chosen.Penalty)
+            {
+                chosen = halves;
             }
         }
 
+        var best = chosen.Lanes;
         if (best is null)
         {
             // 两只手起手都会连按（上一下是多押）：第一下换到最近的空轨道
-            best = Assign(startHand);
+            best = Assign(startHand, full);
             best[0] = NearestFreeLane(best[0], time, o, last!, layout);
         }
 

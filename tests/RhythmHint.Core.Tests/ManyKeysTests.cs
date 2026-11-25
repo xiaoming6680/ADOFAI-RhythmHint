@@ -5,7 +5,8 @@ namespace RhythmHint.Core.Tests;
 
 /// <summary>
 /// 6K（S D F J K L）、8K（A S D F J K L ;）的自动排键（2026-11-22 用户：不照搬 4K，参考网上多键的手法另写一套）：
-/// 慢的右手食指、中速左右食指轮流；快连打整串分给两只手轮流、每只手一组从外往内滚；多押手指够就放在一只手上。
+/// 慢的右手食指、中速左右食指轮流；快连打先在一只手上从外往内滚，这只手的手指用完了才换另一只手（2026-11-25 用户：轮指少换手、尽量在一边轮完）；
+/// 多押手指够就放在一只手上。
 /// 提示怎么合和 4K 一样。4K 不走这套（4K 的结果由改动前后的转储逐字节比较守着）。
 /// </summary>
 public class ManyKeysTests
@@ -67,17 +68,23 @@ public class ManyKeysTests
         Assert.Equal(Enumerable.Range(0, 24).Select(i => cycle[i % cycle.Length]), lanes);
     }
 
-    /// <summary>短的快连打每只手用的手指少：两下左右手各一下，三四下每组两根手指，再长用满一只手；不够一组的从食指往外数。</summary>
+    /// <summary>
+    /// 短的快连打在一只手上轮完，不跨中间（2026-11-25 用户：轮指少换手、尽量在一边轮完）：一只手的手指够就整串放在右手，从外往内滚到食指；
+    /// 不够的这只手用满了才换另一只手，剩下的同样从外往内、不够一只手的从食指往外数。原来两下是 J F、四下是 K J D F，都跨中间。
+    /// </summary>
     [Theory]
-    [InlineData(6, 2, new[] { 3, 2 })]
-    [InlineData(6, 3, new[] { 4, 3, 2 })]
-    [InlineData(6, 4, new[] { 4, 3, 1, 2 })]
+    [InlineData(6, 2, new[] { 4, 3 })]
+    [InlineData(6, 3, new[] { 5, 4, 3 })]
+    [InlineData(6, 4, new[] { 5, 4, 3, 2 })]
     [InlineData(6, 5, new[] { 5, 4, 3, 1, 2 })]
     [InlineData(6, 7, new[] { 5, 4, 3, 0, 1, 2, 3 })]
-    [InlineData(8, 4, new[] { 5, 4, 2, 3 })]
-    [InlineData(8, 6, new[] { 6, 5, 4, 1, 2, 3 })]
+    [InlineData(8, 2, new[] { 5, 4 })]
+    [InlineData(8, 3, new[] { 6, 5, 4 })]
+    [InlineData(8, 4, new[] { 7, 6, 5, 4 })]
+    [InlineData(8, 5, new[] { 7, 6, 5, 4, 3 })]
+    [InlineData(8, 6, new[] { 7, 6, 5, 4, 2, 3 })]
     [InlineData(8, 7, new[] { 7, 6, 5, 4, 1, 2, 3 })]
-    public void ShortRunsUseFewerFingers(int keys, int count, int[] expected)
+    public void ShortRunsStayOnOneHand(int keys, int count, int[] expected)
     {
         Assert.Equal(expected, LanesOf(NotePlanner.Plan(Run(count, 0.04), Options(keys))));
     }
@@ -85,10 +92,10 @@ public class ManyKeysTests
     [Fact]
     public void RunStartsOnTheOtherHandAfterARecentNote()
     {
-        // 右手食指刚按过（R 以内）：快连打从左手起
+        // 右手食指刚按过（R 以内）：快连打从左手起，左手用满了才换右手
         var tiles = Run(1, 0.1).Concat(Run(4, 0.04, start: 1.1, firstTile: 2)).ToList();
 
-        Assert.Equal(new[] { 3, 1, 2, 4, 3 }, LanesOf(NotePlanner.Plan(tiles, Options(6))));
+        Assert.Equal(new[] { 3, 0, 1, 2, 3 }, LanesOf(NotePlanner.Plan(tiles, Options(6))));
     }
 
     [Fact]
@@ -115,7 +122,7 @@ public class ManyKeysTests
         var tiles = Run(4, 0.062);
 
         Assert.Equal(new[] { 3, 2, 3, 2 }, LanesOf(NotePlanner.Plan(tiles, Options(6, style: FingeringStyle.ReviewPreferenceV1))));
-        Assert.Equal(new[] { 4, 3, 1, 2 }, LanesOf(NotePlanner.Plan(tiles, Options(6))));
+        Assert.Equal(new[] { 5, 4, 3, 2 }, LanesOf(NotePlanner.Plan(tiles, Options(6))));
     }
 
     /// <summary>多押手指够就放在一只手上，从食指往外；不够的从另一只手的食指补。多押用手选另一只手时放左手。</summary>

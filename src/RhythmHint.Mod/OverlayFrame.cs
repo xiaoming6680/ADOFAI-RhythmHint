@@ -23,6 +23,9 @@ internal sealed class OverlayFrame
     public Message Caption = Message.Empty;
 
     public IReadOnlyList<PlannedNote> Notes = Array.Empty<PlannedNote>();
+
+    /// <summary>每个音符的提示时间（<see cref="HintTiming"/>：伪多押在第一块和最后一块砖的正中间），和 <see cref="Notes"/> 一一对应。</summary>
+    private double[] _hintTimes = Array.Empty<double>();
     public IReadOnlyList<BeatLine> Beats = Array.Empty<BeatLine>();
     public readonly Dictionary<int, (float Time, Color Color)> Flash = new();
     public (float Time, Color Color) TaikoFlash = (-10f, Painter.Orange);
@@ -42,9 +45,11 @@ internal sealed class OverlayFrame
     private int _lastSeq = -1;
 
     /// <summary>换了一套音符（换关、重开、进出演示）时调用。<paramref name="keys"/> 是音符按几键排的。</summary>
-    public void Load(IReadOnlyList<PlannedNote> notes, IReadOnlyList<BeatLine> beats, double endTime, int keys = 4)
+    /// <param name="hits">这套音符盖着的砖，算伪多押的提示时间用。</param>
+    public void Load(IReadOnlyList<PlannedNote> notes, IReadOnlyList<TileHit> hits, IReadOnlyList<BeatLine> beats, double endTime, int keys = 4)
     {
         Notes = notes;
+        _hintTimes = HintTiming.Times(notes, hits);
         Keys = keys;
         Beats = beats;
         EndTime = endTime;
@@ -86,20 +91,20 @@ internal sealed class OverlayFrame
     }
 
     /// <summary>
-    /// 音符离判定还有多少秒，画位置用。伪双押的第一块砖已经按到、还在等约 25 ms 后的第二块时算 0：
-    /// 停在判定处，不越过去（越过看起来像漏按了）。
+    /// 第 i 个音符离判定还有多少秒，画位置用。伪多押按第一块和最后一块砖的正中间到判定；
+    /// 过了正中间、第一块已经按到、还在等后面的砖时算 0：停在判定处，不越过去（越过看起来像漏按了）。
     /// </summary>
-    public double TimeTo(PlannedNote note)
+    public double TimeTo(int i)
     {
-        var dt = note.Time - Now;
-        return dt < 0 && note.TileIndex <= _lastSeq ? 0 : dt;
+        var dt = _hintTimes[i] - Now;
+        return dt < 0 && Notes[i].TileIndex <= _lastSeq ? 0 : dt;
     }
 
     /// <summary>从 NextNote 往后，到达时间在 lookAhead 秒以内的音符到哪里为止（不含）。从远往近画时用。</summary>
     public int VisibleEnd(double lookAhead)
     {
         var end = NextNote;
-        while (end < Notes.Count && Notes[end].Time - Now <= lookAhead)
+        while (end < Notes.Count && _hintTimes[end] - Now <= lookAhead)
         {
             end++;
         }

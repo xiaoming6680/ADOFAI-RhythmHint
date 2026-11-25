@@ -38,6 +38,35 @@ public static class Lanes
 /// <param name="Multitap">是双押砖（关卡里要按两下及以上，不管游戏设置）：套用专属手序时按 Taps 补键、减键只动这种砖。</param>
 public readonly record struct TileHit(int TileIndex, double Time, double HoldSeconds = 0, double Angle = double.NaN, int Taps = 1, bool Multitap = false);
 
+/// <summary>
+/// 提示画在什么时候到判定线。伪多押由几块相隔二三十毫秒的砖组成，玩家照着提示一次按下几个键：
+/// 提示放在第一块砖时，后面几块总是按早（2026-11-25 用户：多押每次跟着提示按，总是稍早或稍晚）。
+/// 所以放在第一块和最后一块砖的正中间，最早那块稍慢、最晚那块稍快，偏差各一半。只管画，排键照旧用 <see cref="PlannedNote.Time"/>。
+/// </summary>
+public static class HintTiming
+{
+    /// <summary>每个音符的提示时间，和 notes 一一对应。hits 里找不到最后一块砖时用 <see cref="PlannedNote.Time"/>。</summary>
+    public static double[] Times(IReadOnlyList<PlannedNote> notes, IReadOnlyList<TileHit> hits)
+    {
+        var timeOf = new Dictionary<int, double>(hits.Count);
+        foreach (var hit in hits)
+        {
+            timeOf[hit.TileIndex] = hit.Time;
+        }
+
+        var times = new double[notes.Count];
+        for (var i = 0; i < notes.Count; i++)
+        {
+            var note = notes[i];
+            times[i] = note.LastTileIndex != note.TileIndex && timeOf.TryGetValue(note.LastTileIndex, out var last)
+                ? (note.Time + last) / 2
+                : note.Time;
+        }
+
+        return times;
+    }
+}
+
 /// <summary>最终画到屏幕上的一个音符。</summary>
 public sealed class PlannedNote
 {

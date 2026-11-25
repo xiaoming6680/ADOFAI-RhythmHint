@@ -654,10 +654,10 @@
         if (lastY - y < 13) continue;
         lastY = y;
         const la = lanesOf(a, state), lb = lanesOf(b, state);
-        const gap = b.time - a.time, jack = state.jacks.has(a.id) && state.jacks.has(b.id) && la.some(x => lb.some(z => z[0] === x[0]));
+        const gap = b.start - a.start, jack = state.jacks.has(a.id) && state.jacks.has(b.id) && la.some(x => lb.some(z => z[0] === x[0]));
         g.fillStyle = jack ? COLORS.danger : COLORS.text3;
         g.font = (jack ? '600 ' : '') + '10.5px ' + MONO;
-        const value = model.noteValue(doc, b.time, gap);
+        const value = model.noteValue(doc, b.start, gap);
         g.fillText(Math.round(gap * 1000) + (value ? ' · ' + value : '') + (jack ? ' ' + state.t('gap.jack') : ''), col.x + 12, y);
         g.fillStyle = jack ? 'rgba(239,91,91,0.5)' : 'rgba(255,255,255,0.09)';
         g.fillRect(col.x + 5, yb + 3, 1, ya - yb - 6);

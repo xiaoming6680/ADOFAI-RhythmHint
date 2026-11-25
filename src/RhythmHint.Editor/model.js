@@ -101,7 +101,10 @@
         seen.add(l[0]);
         return [l[0], l[1]];
       });
-      notes.push({ id: notes.length, first, last, tile: n[0], lastTile: n[1], time: hits[first].time, lanes: sortLanes(lanes) });
+      // time 是提示到判定线的时间：几块砖合成的多押在第一块和最后一块的正中间（同 Mod 的 HintTiming，2026-11-25 用户：
+      // 跟着提示按总是稍早或稍晚）；start 是第一块砖的时间，间隔、几分音符、连按都用它
+      const start = hits[first].time;
+      notes.push({ id: notes.length, first, last, tile: n[0], lastTile: n[1], start, time: (start + hits[last].time) / 2, lanes: sortLanes(lanes) });
       next = last + 1;
     });
     need(next === hits.length, 'badFile', 'coverage');
@@ -479,7 +482,7 @@
     for (const n of doc.notes) {
       for (const [lane] of n.lanes) {
         const prev = last[lane];
-        if (prev && n.time - prev.time < window - 1e-6) { out.add(n.id); out.add(prev.id); }
+        if (prev && n.start - prev.start < window - 1e-6) { out.add(n.id); out.add(prev.id); }
         last[lane] = n;
       }
     }

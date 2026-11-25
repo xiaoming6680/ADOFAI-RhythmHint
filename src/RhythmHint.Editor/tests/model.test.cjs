@@ -155,6 +155,22 @@ test('jacks and note values', () => {
   assert.equal(M.noteValue(doc, 1.5, 0.31), '');
 });
 
+test('a pseudo chord reaches the judgment line halfway between its tiles', () => {
+  // 2026-11-25 用户：多押每次跟着提示准确按下，总是稍早或稍晚。几块砖合成的提示画在第一块和最后一块的正中间，
+  // 间隔、几分音符和连按照旧按第一块砖算
+  const doc = M.fromFileText(JSON.stringify({
+    format: 'rhythmhint-fingering', schemaVersion: 1,
+    hits: [[1, 1.0, 0, 90], [2, 1.025, 0, 10], [3, 1.05, 0, 10], [4, 1.5, 0, 90]],
+    notes: [[1, 3, [[1, 0], [2, 0], [3, 0]]], [4, 4, [[2, 0]]]],
+  }));
+  assert.equal(doc.notes[0].time, 1.025);
+  assert.equal(doc.notes[0].start, 1.0);
+  assert.equal(doc.notes[1].time, 1.5);
+  assert.equal(doc.notes[1].start, 1.5);
+  assert.deepEqual([...M.jacks(doc, 0.49)].sort(), []);
+  assert.deepEqual([...M.jacks(doc, 0.51)].sort(), [0, 1]);
+});
+
 test('note values follow the beat lines, not the level BPM', () => {
   // 2026-11-19：很多谱的关卡 BPM 是谱师为转角设的数（工坊 2802147583 是 1011、32352），按它标几分音符没有意义；
   // Mod 推算的节拍线是音乐的拍子，有节拍线就按相邻两条线之间的拍长算

@@ -245,7 +245,7 @@ internal static class LaneView
         for (var i = f.NextNote; i < f.Notes.Count; i++)
         {
             var note = f.Notes[i];
-            var dt = f.TimeTo(note);
+            var dt = f.TimeTo(i);
             if (dt > lookAhead)
             {
                 break;
@@ -381,7 +381,7 @@ internal static class LaneView
         for (var i = f.VisibleEnd(lookAhead) - 1; i >= f.NextNote; i--)
         {
             var note = f.Notes[i];
-            var dt = f.TimeTo(note);
+            var dt = f.TimeTo(i);
             if (dt < -0.15)
             {
                 continue; // 已经晚了很多还没按到（例如在等检查点），不再往判定圈里画

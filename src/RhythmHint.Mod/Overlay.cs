@@ -563,7 +563,7 @@ internal sealed class Overlay : MonoBehaviour
         var info = snapshot.Info;
         var chosen = snapshot.Fingering;
         var notes = chosen.Notes;
-        Frame.Load(notes, snapshot.Beats, end, chosen.Keys);
+        Frame.Load(notes, hits, snapshot.Beats, end, chosen.Keys);
         _judgments.Reset();
         Frame.Caption = Message.Empty;
         _snapshot = hits.Count > 0 ? snapshot : null;

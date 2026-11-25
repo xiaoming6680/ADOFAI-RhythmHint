@@ -164,7 +164,7 @@ internal static class TopBarView
         for (var i = f.NextNote; i < f.VisibleEnd(lookAhead); i++)
         {
             var note = f.Notes[i];
-            var dt = f.TimeTo(note);
+            var dt = f.TimeTo(i);
             if (dt < -0.15)
             {
                 continue;

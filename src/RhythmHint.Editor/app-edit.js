@@ -223,13 +223,13 @@
     if (one) {
       const i = one.id;
       const prev = i > 0 ? doc.notes[i - 1] : null, next = i + 1 < doc.notes.length ? doc.notes[i + 1] : null;
-      const ms = (a, b) => a && b ? Math.round((b.time - a.time) * 1000) + ' ms' : '—';
+      const ms = (a, b) => a && b ? Math.round((b.start - a.start) * 1000) + ' ms' : '—';
       const tags = [];
       if (one.filled) tags.push('<span class="tag auto">' + esc(state.t('source.auto')) + '</span>');
       else if (state.source === 'game' && doc.usedFile) tags.push('<span class="tag custom">' + esc(state.t('source.custom')) + '</span>');
       if (M.isChanged(one)) tags.push('<span class="tag changed">' + esc(state.t('source.changed')) + '</span>');
       html += '<dl class="kv">'
-        + '<dt>' + esc(state.t('insp.time')) + '</dt><dd class="mono">' + esc(fmt(one.time)) + '</dd>'
+        + '<dt>' + esc(state.t('insp.time')) + '</dt><dd class="mono">' + esc(fmt(one.start)) + '</dd>'
         + '<dt>' + esc(state.t('insp.tile')) + '</dt><dd class="mono">#' + one.tile + (one.lastTile !== one.tile ? '–' + one.lastTile : '') + '</dd>'
         + '<dt>' + esc(state.t('insp.gap')) + '</dt><dd>' + esc(state.t('insp.gapValue', ms(prev, one), ms(one, next))) + '</dd>'
         + '<dt>' + esc(state.t('insp.kind')) + '</dt><dd>' + esc(state.t('kind.' + Math.min(8, one.lanes.length))) + '</dd>'

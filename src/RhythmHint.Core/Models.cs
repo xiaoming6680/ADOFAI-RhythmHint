@@ -42,6 +42,7 @@ public readonly record struct TileHit(int TileIndex, double Time, double HoldSec
 /// 提示画在什么时候到判定线。伪多押由几块相隔二三十毫秒的砖组成，玩家照着提示一次按下几个键：
 /// 提示放在第一块砖时，后面几块总是按早（2026-11-25 用户：多押每次跟着提示按，总是稍早或稍晚）。
 /// 所以放在第一块和最后一块砖的正中间，最早那块稍慢、最晚那块稍快，偏差各一半。只管画，排键照旧用 <see cref="PlannedNote.Time"/>。
+/// 试过放在四分之一处（同一首 532 BPM 谱两遍实打对比），玩家跟着提前按，第二块砖太快变多，多押后面那一下也没变准，所以留在正中间，别再挪。
 /// </summary>
 public static class HintTiming
 {

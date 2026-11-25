@@ -25,7 +25,8 @@ internal sealed class KeyInput
             Array.Clear(frame.KeysDown, 0, frame.KeysDown.Length);
         }
 
-        if (!settings.LightKeysOnPress || _broken)
+        // 按下时一直点亮（2026-11-23 用户：设置项太多，去掉「按下时点亮按键框」开关；LightKeysOnPress 不再读）
+        if (_broken)
         {
             Array.Clear(frame.KeysDown, 0, frame.KeysDown.Length);
             return;

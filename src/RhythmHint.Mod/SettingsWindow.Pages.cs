@@ -254,7 +254,6 @@ internal sealed partial class SettingsWindow
         }
 
         _ui.Gap(12);
-        s.LightKeysOnPress = _ui.Switch("light", "bulb", Lang.T("按下时点亮按键框"), null, s.LightKeysOnPress);
         _ui.EndCard();
 
         // 位置：左边一张屏幕示意图（跟着选择动），右边两个选择
@@ -276,14 +275,32 @@ internal sealed partial class SettingsWindow
         s.ShrinkGameView = _ui.Switch("shrink", "monitor", Lang.T("自适应游戏画幅"), Lang.T("面板显示时，游戏画面和界面文字缩到面板以外的区域。"), s.ShrinkGameView);
         _ui.EndCard();
 
+        // 子项跟着父项收起（2026-11-23 用户：设置项太多）：判定提示只画在下落面板上、多押数字只画在太鼓条上、估算难度画在 BPM 框里，
+        // 父项关掉时子项不显示（设置值不变，再打开父项还是原来的）
         _ui.BeginCard("show", "sliders", Lang.T("显示内容"));
         s.ShowLanes = _ui.Switch("lanes", "lanes", Lang.T("下落面板"), null, s.ShowLanes);
+        if (_ui.BeginFold("lanesItems", s.ShowLanes))
+        {
+            JudgmentChoice(s);
+        }
+
+        _ui.EndFold();
         s.ShowTaiko = _ui.Switch("taiko", "drum", Lang.T("太鼓条"), null, s.ShowTaiko);
-        s.ShowChordCount = _ui.Switch("chordCount", "chord", Lang.T("多押数字"), Lang.T("太鼓条上的三押、四押音符中间显示 3、4。"), s.ShowChordCount);
+        if (_ui.BeginFold("taikoItems", s.ShowTaiko))
+        {
+            s.ShowChordCount = _ui.Switch("chordCount", "chord", Lang.T("多押数字"), Lang.T("太鼓条上的三押、四押音符中间显示 3、4。"), s.ShowChordCount);
+        }
+
+        _ui.EndFold();
         s.ShowBpm = _ui.Switch("bpm", "gauge", Lang.T("BPM 与剩余时间"), null, s.ShowBpm);
-        // 估算难度是试验性功能（2026-11-19 用户：试验阶段的功能统一标「试验性」），名字后面标出来
-        s.ShowDifficulty = _ui.Switch("difficulty", "medal", Lang.T("估算难度"),
-            Lang.T("在 BPM 框左侧显示按本关砖块估算的 TUF 难度档位，仅供参考，并非 TUF 官方评级。"), s.ShowDifficulty, Lang.T("试验性"));
+        if (_ui.BeginFold("bpmItems", s.ShowBpm))
+        {
+            // 估算难度是试验性功能（2026-11-19 用户：试验阶段的功能统一标「试验性」），名字后面标出来
+            s.ShowDifficulty = _ui.Switch("difficulty", "medal", Lang.T("估算难度"),
+                Lang.T("在 BPM 框左侧显示按本关砖块估算的 TUF 难度档位，仅供参考，并非 TUF 官方评级。"), s.ShowDifficulty, Lang.T("试验性"));
+        }
+
+        _ui.EndFold();
         _ui.EndCard();
 
         // 按键框的键位 2026-11-22 搬到按键页（和用几键、快捷键放一起），这里只管长什么样
@@ -297,6 +314,22 @@ internal sealed partial class SettingsWindow
         _ui.EndCard();
 
         ResetFooter(overlay, "look", s.ResetDisplay, null);
+    }
+
+    /// <summary>
+    /// 判定提示（2026-11-23 用户）：判定线上方的小字，文字和颜色用游戏自己的；完美的默认不显示。
+    /// 同一天试过轨道染色（读谱时不用低头），用户看了让去掉。开着外观页时后面的演示出示例判定。
+    /// </summary>
+    private void JudgmentChoice(Settings s)
+    {
+        s.ShowJudgments = _ui.Switch("judgments", "target", Lang.T("判定提示"),
+            Lang.T("在下落面板判定线上方显示游戏的判定文字，文字与颜色和游戏一致。"), s.ShowJudgments);
+        if (_ui.BeginFold("perfectJudgments", s.ShowJudgments))
+        {
+            s.ShowPerfectJudgments = _ui.Switch("perfectJudgments", "sparkle", Lang.T("显示完美判定"), Lang.T("关闭时仅显示非完美判定。"), s.ShowPerfectJudgments);
+        }
+
+        _ui.EndFold();
     }
 
     /// <summary>位置那两行：名字在左、分段选择在右，返回选中第几个。</summary>

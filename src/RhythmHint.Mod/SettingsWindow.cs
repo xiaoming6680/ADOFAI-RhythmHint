@@ -63,6 +63,9 @@ internal sealed partial class SettingsWindow
     /// <summary>要不要画：开着，或者正在淡出。</summary>
     public bool NeedsDraw => Visible || _open > 0.001f;
 
+    /// <summary>窗口开着、在外观页：演示里出示例判定，让玩家看到判定提示的样子（校准页不出，免得以为画面偏移不对）。</summary>
+    public bool OnLookPage => Visible && _page == Page.Look;
+
     /// <summary>窗口在屏幕上的位置（像素，左上角为原点）；没显示时为 null。给 InputShield 挡住这块区域的鼠标用。</summary>
     public Rect? ScreenRect
     {

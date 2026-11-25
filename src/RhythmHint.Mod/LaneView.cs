@@ -20,6 +20,11 @@ internal static class LaneView
     private const float JudgeBottomGap = 18f; // 判定圈下沿到面板底边
     private const float HoldBreath = 6f;      // 圆形长按按住时光晕一呼一吸的角速度（约 1 次/秒），不用横条那种快闪
 
+    // 判定小字（1080p 像素）：字号、离判定线（圆形是判定圈上沿）多高、出来后往上飘多少
+    private const float JudgmentSize = 15f;
+    private const float JudgmentGap = 16f;
+    private const float JudgmentRise = 10f;
+
     private static readonly Color JudgeLine = new(0.28f, 0.28f, 0.32f);
 
     private static string _warmed = string.Empty;
@@ -27,7 +32,8 @@ internal static class LaneView
     /// <summary>
     /// 先把按键框键名要用的字形排进字体贴图（2026-11-22 用户：第一次用 6K、8K 时面板进场会卡一下）。
     /// 键名字号跟着轨道宽变：6K、8K 比 4K 小，换键数的过渡途中还会经过一串中间字号；第一次画到某个字号时字体要临时排字形、重建贴图。
-    /// 这里把三套键位在可能用到的字号都先排好。屏幕大小、缩放、键位变了再排一次。只能在 OnGUI 里调用（要读 GUI.skin 的字体）。
+    /// 这里把三套键位在可能用到的字号都先排好，判定小字（游戏的判定文字）也一起排。屏幕大小、缩放、键位、游戏语言变了再排一次。
+    /// 只能在 OnGUI 里调用（要读 GUI.skin 的字体）。
     /// </summary>
     public static void Prewarm(Settings s)
     {
@@ -41,7 +47,8 @@ internal static class LaneView
             }
         }
 
-        var state = $"{Screen.height}/{scale}/{text}";
+        var judgments = GameJudgments.AllTexts(); // 判定小字跟游戏语言走，换了语言也要再排
+        var state = $"{Screen.height}/{scale}/{text}/{judgments}";
         var font = GUI.skin.label.font ? GUI.skin.label.font : GUI.skin.font;
         if (state == _warmed || !font || !font.dynamic)
         {
@@ -60,7 +67,8 @@ internal static class LaneView
             font.RequestCharactersInTexture(text, size, FontStyle.Bold);
         }
 
-        Main.Mod.Logger.Log($"下落面板：先排好键名 {from}–{to} 号字的字形（{watch.ElapsedMilliseconds} 毫秒）");
+        font.RequestCharactersInTexture(judgments, Mathf.RoundToInt(JudgmentSize * scale), FontStyle.Bold);
+        Main.Mod.Logger.Log($"下落面板：先排好键名 {from}–{to} 号字和判定文字的字形（{watch.ElapsedMilliseconds} 毫秒）");
     }
 
     public static void Draw(OverlayFrame f, OverlayLayout l, Settings s)
@@ -115,6 +123,42 @@ internal static class LaneView
             DrawNotes(f, l, judgeY, speed, lookAhead);
             Painter.Alpha = alpha;
             DrawJudgeAndKeys(f, l, judgeY, holds, opacity);
+        }
+
+        DrawJudgments(f, l, s.RoundNotes ? hitY - (JudgeRadius * l.Unit) - (JudgmentGap * l.Scale) : judgeY - (JudgmentGap * l.Scale));
+    }
+
+    /// <summary>
+    /// 判定小字（2026-11-23 用户：多 K 面板上加判定提示，但不能喧宾夺主；文字用游戏的）：游戏自己的判定文字和颜色，
+    /// 落在按的那条轨道（多押取几条轨道的中间）判定线上方，出来后往上飘一点、很快淡掉。字小、不加底框，
+    /// 只在右下垫一层很淡的暗影，压在音符上也看得清。窄轨道上字可以比轨道宽，贴边时往里挪，不出面板。
+    /// </summary>
+    /// <param name="baseY">字的中线（还没往上飘时）。</param>
+    private static void DrawJudgments(OverlayFrame f, OverlayLayout l, float baseY)
+    {
+        var items = f.Judgments.Items;
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        var now = Time.unscaledTime;
+        var size = Mathf.RoundToInt(JudgmentSize * l.Scale);
+        var h = size * 1.6f;
+        var shadow = Mathf.Max(1, Mathf.Round(l.Scale));
+        foreach (var pop in items)
+        {
+            var age = (float)pop.Age(now);
+            var a = 1 - (age * age * age); // 先停一下再淡
+            var rise = JudgmentRise * l.Scale * (1 - ((1 - age) * (1 - age)));
+            var text = GameJudgments.Text(pop.Value);
+            var w = Mathf.Min(l.PanelWidth, Painter.TextWidth(text, size, true) + (6 * l.Scale));
+            var x = Mathf.Clamp(l.Padding + ((float)pop.Center * l.LaneWidth) - (w / 2), 0, l.PanelWidth - w);
+            var r = new Rect(x, baseY - rise - (h / 2), w, h);
+            var color = GameJudgments.Color(pop.Value);
+            // 框已经按字宽量好，直接按原字号画（FitText 只用框宽的九成，会把字缩小一号）
+            Painter.Text(new Rect(r.x + shadow, r.y + shadow, r.width, r.height), text, size, new Color(0, 0, 0, 0.5f * a), bold: true);
+            Painter.Text(r, text, size, color.WithAlpha(color.a * 0.92f * a), bold: true);
         }
     }
 

@@ -30,6 +30,12 @@ internal sealed class OverlayFrame
     public readonly bool[] KeysDown = new bool[8];
     public string[] KeyLabels = Array.Empty<string>();
 
+    /// <summary>这一帧刚按过去的音符（<see cref="TrackHits"/> 填，倒退重新定位时为空）：读它们的判定用。</summary>
+    public readonly List<PlannedNote> Passed = new();
+
+    /// <summary>下落面板判定线上方的判定小字（关卡里是游戏记下的判定，演示里是编出来的示例），时钟是 Time.unscaledTime。</summary>
+    public readonly JudgmentPops<HitMargin> Judgments = new();
+
     /// <summary>按几键显示（4、6、8）：<see cref="Load"/> 时定，换关、换设置后跟着变。</summary>
     public int Keys { get; private set; } = 4;
 
@@ -44,15 +50,18 @@ internal sealed class OverlayFrame
         EndTime = endTime;
         DifficultyTier = 0;
         Flash.Clear();
+        Passed.Clear();
+        Judgments.Clear();
         _lastSeq = -1;
     }
 
     /// <summary>
     /// 砖块序号前进时，把刚经过的音符所在轨道点亮；倒退（检查点重来、演示循环）时重新定位。
-    /// 伪多押由几块挨着的砖组成，都按过（LastTileIndex）才算这个提示过去。
+    /// 伪多押由几块挨着的砖组成，都按过（LastTileIndex）才算这个提示过去。过去的音符记在 <see cref="Passed"/>。
     /// </summary>
     public void TrackHits(int seq)
     {
+        Passed.Clear();
         if (seq < _lastSeq || _lastSeq < 0)
         {
             NextNote = FirstPending(seq);
@@ -68,6 +77,7 @@ internal sealed class OverlayFrame
                 }
 
                 TaikoFlash = (Time.unscaledTime, Painter.NoteColor(note));
+                Passed.Add(note);
                 NextNote++;
             }
         }

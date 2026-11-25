@@ -58,7 +58,8 @@ internal sealed class DemoPlayer
     public double SecondsPerBeat => _demo.SecondsPerBeat;
 
     /// <param name="sound">是否放嗒声（演示正在滑出时不放）。</param>
-    public void Tick(OverlayFrame frame, Settings settings, bool sound)
+    /// <param name="sampleJudgments">出示例判定（设置窗口在外观页时）。</param>
+    public void Tick(OverlayFrame frame, Settings settings, bool sound, bool sampleJudgments)
     {
         var music = TryMenuMusic(out var songPos, out var bpm, out var pitch);
         if (!_running || music != _followingMusic)
@@ -101,6 +102,23 @@ internal sealed class DemoPlayer
         frame.Now = shown + (settings.VisualOffsetMs / 1000.0);
         frame.EndTime = shown + loop;
         frame.TrackHits(CountReached(frame.Now));
+        if (sampleJudgments)
+        {
+            AddSampleJudgments(frame, settings);
+        }
+    }
+
+    /// <summary>演示里每块砖都按得准，判定是编出来的（<see cref="JudgmentRules.DemoAt"/>），只为让玩家看到判定提示的样子。</summary>
+    private static void AddSampleJudgments(OverlayFrame frame, Settings settings)
+    {
+        foreach (var note in frame.Passed)
+        {
+            var margin = GameJudgments.From(JudgmentRules.DemoAt(note.TileIndex));
+            if (GameJudgments.Shows(margin, settings))
+            {
+                frame.Judgments.Add(note.Lanes.Keys, margin, Time.unscaledTime, GameJudgments.MinGap(frame.Keys));
+            }
+        }
     }
 
     public void Stop()

@@ -49,6 +49,15 @@ public sealed partial class Settings
     /// </summary>
     public bool ShowChordCount = true;
 
+    /// <summary>
+    /// 下落面板判定线上方显示每一下的判定（2026-11-23 用户：多 K 面板上加判定提示，但不能喧宾夺主）：文字和颜色用游戏自己的，
+    /// 在按的那条轨道上方出一行小字、很快淡掉。所有人默认开。1.3.x 不认这个字段，不画。
+    /// </summary>
+    public bool ShowJudgments = true;
+
+    /// <summary>判定提示里完美的也显示（默认只显示不完美的：大部分按键都是完美，全写出来太密）。</summary>
+    public bool ShowPerfectJudgments;
+
     /// <summary>四轨面板放在屏幕右边（默认左边）。</summary>
     public bool LanesOnRight;
 
@@ -94,6 +103,10 @@ public sealed partial class Settings
     /// <summary>8K 的八个按键框（再加上小指）。</summary>
     public string KeyLabels8 = "A S D F J K L ;";
 
+    /// <summary>
+    /// 按下时点亮按键框。2026-11-23 起不再读它、设置窗口也不再提供（用户：设置项太多），按下时总是点亮；
+    /// 字段留着：老设置文件里有它，1.3.x 也认它（只加字段、不删字段）。
+    /// </summary>
     public bool LightKeysOnPress = true;
 
     /// <summary>打开 / 关闭独立设置窗口的按键（Unity 按键名）。</summary>
@@ -434,6 +447,8 @@ public sealed partial class Settings
         ShowBpm = d.ShowBpm;
         ShowDifficulty = d.ShowDifficulty;
         ShowChordCount = d.ShowChordCount;
+        ShowJudgments = d.ShowJudgments;
+        ShowPerfectJudgments = d.ShowPerfectJudgments;
         ShrinkGameView = d.ShrinkGameView;
         UiScale = d.UiScale;
         LaneSpeed = d.LaneSpeed;

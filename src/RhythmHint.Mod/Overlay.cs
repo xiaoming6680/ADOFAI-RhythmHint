@@ -40,6 +40,7 @@ internal sealed class Overlay : MonoBehaviour
     private string _screenStateText = string.Empty; // 原文，用来判断画面状态变没变
     private Message _levelStatus = Lang.M("尚未进入关卡");
     private readonly FingeringSource _fingerings = new();
+    private readonly JudgmentReader _judgments = new();
     private bool _playing; // 上一帧在打歌（关卡显示中、没暂停、没开设置窗口）：手序文件夹少看几次
     private LevelSnapshot? _snapshot;
     private bool _levelActive;
@@ -343,7 +344,7 @@ internal sealed class Overlay : MonoBehaviour
         var demoRunning = !levelShown && (preview || (_demoShowing && Frame.Presence > 0));
         if (demoRunning)
         {
-            _demo.Tick(Frame, settings, sound: preview);
+            _demo.Tick(Frame, settings, sound: preview, sampleJudgments: _window.OnLookPage);
             _demoShowing = true;
             _fingerprint = null; // 演示用过 Frame，回到关卡时要重新装入关卡的音符
         }
@@ -358,6 +359,7 @@ internal sealed class Overlay : MonoBehaviour
         var pausedHide = paused && !_window.Visible;
         _playing = levelShown && !paused && !_window.Visible;
         Frame.Presence = (float)_presence.Update((levelShown && !pausedHide) || preview, Time.unscaledDeltaTime);
+        Frame.Judgments.Expire(Time.unscaledTime);
 
         // 界面文字在关卡里始终跟着面板一起缩放（暂停、开关本 Mod 设置窗口、本关结束都一样）：
         // 面板滑出时一起放大回全屏，完全收起时正好和原样重合，这时才改回覆盖模式；中途不切换，否则会先跳一下再动。
@@ -418,6 +420,7 @@ internal sealed class Overlay : MonoBehaviour
         Frame.Now = _clock.Advance(song + (settings.VisualOffsetMs / 1000.0), failed);
         Frame.Bpm = GameReader.CurrentBpm(level);
         Frame.TrackHits(level.Controller.currentSeqID);
+        _judgments.Update(level, Frame, settings);
 
         if (won || (!failed && Frame.NextNote >= Frame.Notes.Count && Frame.Now > Frame.EndTime + ExitAfterLastNote))
         {
@@ -561,6 +564,7 @@ internal sealed class Overlay : MonoBehaviour
         var chosen = snapshot.Fingering;
         var notes = chosen.Notes;
         Frame.Load(notes, snapshot.Beats, end, chosen.Keys);
+        _judgments.Reset();
         Frame.Caption = Message.Empty;
         _snapshot = hits.Count > 0 ? snapshot : null;
         Frame.DifficultyTier = snapshot.Tier;

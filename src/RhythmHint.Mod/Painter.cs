@@ -83,6 +83,13 @@ internal static class Painter
         Text(r, text, size, c, anchor, bold);
     }
 
+    /// <summary>一行字多宽（像素）。</summary>
+    public static float TextWidth(string text, int size, bool bold = false)
+    {
+        Content.text = text;
+        return TextStyle(size, bold).CalcSize(Content).x;
+    }
+
     public static Color WithAlpha(this Color c, float a) => new(c.r, c.g, c.b, a);
 
     private static Color Fade(Color c) => new(c.r, c.g, c.b, c.a * Alpha);

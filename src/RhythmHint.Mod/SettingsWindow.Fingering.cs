@@ -87,6 +87,7 @@ internal sealed partial class SettingsWindow
             s.ReviewShortMinNotes = _ui.SliderInt("minNotes", null, Lang.T("短串最少音符数"), null, s.ReviewShortMinNotes, 2, 8, 1, v => v.ToString(CultureInfo.InvariantCulture));
             s.ReviewShortMaxNotes = _ui.SliderInt("maxNotes", null, Lang.T("短串最多音符数"), null, s.ReviewShortMaxNotes, s.ReviewShortMinNotes, 16, 1,
                 v => v.ToString(CultureInfo.InvariantCulture));
+            s.KeepReviewRangesOrdered();
             s.ReviewTimingToleranceMs = _ui.Slider("tolerance", null, Lang.T("节奏允许误差"), null, s.ReviewTimingToleranceMs, 0f, 10f, 0.5f,
                 v => v.ToString("0.0", CultureInfo.InvariantCulture) + " ms");
             _ui.Hint(Lang.T("间隔和音符数都在范围内、节奏均匀的连打改用左右食指交替；最长间隔不超过主手重置间隔的一半，更快或更长的仍按轮指。"), 10);

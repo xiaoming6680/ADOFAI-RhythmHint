@@ -302,6 +302,16 @@ public sealed partial class Settings
     }
 
     /// <summary>
+    /// 交替优先的最短间隔、最少音符数调到超过最长、最多时，把最长、最多推到一样大（设置窗口每帧调用）。
+    /// 滑块没被拖动时原样返回、不夹范围，所以下限跟着另一个滑块变时要在这里补上。
+    /// </summary>
+    public void KeepReviewRangesOrdered()
+    {
+        ReviewShortMaxGapMs = Math.Max(ReviewShortMaxGapMs, ReviewShortMinGapMs);
+        ReviewShortMaxNotes = Math.Max(ReviewShortMaxNotes, ReviewShortMinNotes);
+    }
+
+    /// <summary>
     /// 读完设置后修正一遍（Main.Load）：数值夹到设置窗口滑块的范围（<see cref="SliderRanges"/>，界面上调得出来的值都不动）、
     /// 最小值大于最大值时交换、小数不是有限数时换回默认值、字符串为 null 时换回默认值。
     /// 正常操作界面碰不到这些（滑块夹住了），手改 Settings.xml、以后改了滑块范围再降级时会出现；
@@ -497,9 +507,10 @@ public sealed partial class Settings
             OuterRoll = OuterRoll,
             Style = Style,
             ReviewShortMinGap = ReviewShortMinGapMs / 1000.0,
-            ReviewShortMaxGap = ReviewShortMaxGapMs / 1000.0,
+            // 最长不小于最短：设置窗口调参数的那几帧里两者可能交叉，交叉时排键会抛异常、整个 Mod 停用（1.3.5 玩家截图）
+            ReviewShortMaxGap = Math.Max(ReviewShortMinGapMs, ReviewShortMaxGapMs) / 1000.0,
             ReviewShortMinNotes = ReviewShortMinNotes,
-            ReviewShortMaxNotes = ReviewShortMaxNotes,
+            ReviewShortMaxNotes = Math.Max(ReviewShortMinNotes, ReviewShortMaxNotes),
             ReviewTimingTolerance = ReviewTimingToleranceMs / 1000.0,
             LeftHanded = LeftHanded,
             ChordsOnOtherHand = ChordsOnOtherHand,

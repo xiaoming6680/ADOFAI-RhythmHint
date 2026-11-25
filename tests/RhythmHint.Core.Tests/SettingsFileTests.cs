@@ -345,6 +345,30 @@ public sealed class SettingsFileTests : IDisposable
     // ---------- 读完修正（Normalize） ----------
 
     [Fact]
+    public void RaisingReviewMinimumsPastMaximumsNeverStopsTheMod()
+    {
+        // 复现（1.3.5 玩家截图）：设置窗口里先把最长间隔拖到最低，再点最短间隔的加号，最长间隔的滑块没动、不会跟着推上去，
+        // 排键抛「审核偏好短串最小间隔不能大于最大间隔」，整个 Mod 停用
+        var s = new Settings
+        {
+            Style = FingeringStyle.ReviewPreferenceV1,
+            ReviewShortMinGapMs = 61,
+            ReviewShortMaxGapMs = 60f,
+            ReviewShortMinNotes = 6,
+            ReviewShortMaxNotes = 5,
+        };
+        var hits = Enumerable.Range(0, 40).Select(i => new TileHit(i + 1, 1 + (i * 0.07))).ToList();
+
+        NotePlanner.Plan(hits, s.ToFingering());
+
+        s.KeepReviewRangesOrdered();
+        Assert.Equal(61, s.ReviewShortMinGapMs);
+        Assert.Equal(61f, s.ReviewShortMaxGapMs);
+        Assert.Equal(6, s.ReviewShortMinNotes);
+        Assert.Equal(6, s.ReviewShortMaxNotes);
+    }
+
+    [Fact]
     public void NormalizeMakesBrokenNumbersSafeForThePlanner()
     {
         // 复现：交替优先的参数不合法（手改 Settings.xml、以后改了滑块范围再降级）时排键抛 ArgumentException，整个 Mod 停用；

@@ -18,6 +18,7 @@ What changed in each version, newest first.
 - The fingering editor shows the key count of the level in the File panel on the left; levels opened from the game can switch between 4K, 6K and 8K there, each saved as its own file with unfinished edits kept
 - The fingering editor's scrollbars are now slim and rounded instead of the system's grey bars with arrows
 - The mirror site gh-proxy.com stopped working; auto-update now uses edgeone.gh-proxy.org instead (ghfast.top and ghproxy.net are unchanged)
+- Fixed: with the Alternate first layout, setting Short run: shortest gap above Short run: longest gap (for example dragging it all the way right after raising the rhythm thresholds) stopped the mod with an error; the longest gap now moves up with it, and the short-run note counts behave the same way
 
 ## 1.3.5 · 2026-11-20
 

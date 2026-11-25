@@ -22,10 +22,11 @@ internal sealed partial class SettingsWindow
     {
         PageHeader(Page.Rules, Lang.T("自动排键只看本关的砖块间隔，不针对任何谱面特化；修改后立即重新排键。"));
         StyleCard(s);
+        var (right, left) = (Lang.T("右手"), Lang.T("左手"));
+        RhythmCard(s, s.LeftHanded ? left : right);
 
         // 惯用手与多押：两个选择 + 键位图（主手橙框、多押用的键蓝光，左撇子是整套左右镜像）。
         // 原来下面还有一大段说明，键位图已经画清楚了，2026-11-22 重新分组时删掉
-        var (right, left) = (Lang.T("右手"), Lang.T("左手"));
         _ui.BeginCard("hands", "keyboard", Lang.T("惯用手与多押"));
         s.LeftHanded = _ui.Choice("hand", "hand", Lang.T("惯用手"), null, s.LeftHanded, right, left);
         s.ChordsOnOtherHand = _ui.Choice("chordHand", "chord", Lang.T("多押用手"), null, s.ChordsOnOtherHand, Lang.T("同惯用手"), Lang.T("另一只手"));
@@ -36,7 +37,7 @@ internal sealed partial class SettingsWindow
         _ui.Gap(8);
         _ui.EndCard();
 
-        AdvancedCard(s, s.LeftHanded ? left : right);
+        AdvancedCard(s);
 
         var label = Lang.T("重新排键");
         var row = _ui.Take(36);
@@ -138,13 +139,30 @@ internal sealed partial class SettingsWindow
     }
 
     /// <summary>
-    /// 不常调的参数收在「高级参数」里，点标题展开（高度和透明度一起动）。2026-11-22 用户嫌排键页太长、找不到东西：
-    /// 节奏分界、轮指原来各占一张卡片，也并进来分成三组；标题行写主手重置间隔和轮指开没开，不展开也知道现在的值。
+    /// 节奏分界：色带尺跟着主手重置间隔动。2026-11-22 收进过高级参数，2026-11-25 用户让放回外面：
+    /// 单手连点跟不上时第一个要调的就是它，不能藏起来。
     /// </summary>
-    private void AdvancedCard(Settings s, string main)
+    private void RhythmCard(Settings s, string main)
+    {
+        _ui.BeginCard("rhythm", "gauge", Lang.T("节奏分界"));
+        var ruler = _ui.Take(118);
+        var alternate = Lang.T("左右交替");
+        SettingsArt.Ruler(new Rect(ruler.x + Ui.Pad, ruler.y + 10, ruler.width - (Ui.Pad * 2), 104), s.ResetWindowMs,
+            s.UseRoll ? Lang.T("同手轮指") : alternate, alternate, Lang.T("{0}食指单点", main), Lang.T("相邻两块砖的间隔"));
+        s.ResetWindowMs = _ui.SliderInt("reset", "clock", Lang.T("主手重置间隔"),
+            Lang.T("间隔更长时{0}食指单点；当前相当于 {1} BPM 的直线。", main, StraightBpm(s.ResetWindowMs)), s.ResetWindowMs, 100, 300, 5, v => Ms(v));
+        _ui.Hint(Lang.T("单点连打难以跟上时可调大此值，更多音符将改为左右交替。"), 10);
+        _ui.EndCard();
+    }
+
+    /// <summary>
+    /// 不常调的参数收在「高级参数」里，点标题展开（高度和透明度一起动）。2026-11-22 用户嫌排键页太长、找不到东西：
+    /// 轮指原来单占一张卡片，也并进来分组；标题行写轮指开没开，不展开也知道现在的值。节奏分界 2026-11-25 移回外面（<see cref="RhythmCard"/>）。
+    /// </summary>
+    private void AdvancedCard(Settings s)
     {
         _ui.BeginCard("advanced");
-        var summary = Lang.T("主手重置间隔 {0}，轮指{1}", Ms(s.ResetWindowMs), s.UseRoll ? Lang.T("开启") : Lang.T("关闭"));
+        var summary = Lang.T("轮指{0}", s.UseRoll ? Lang.T("开启") : Lang.T("关闭"));
         _advanced = FoldHeader("advanced", "sliders", Lang.T("高级参数"), summary, _advanced);
         if (_ui.BeginFold("advanced", _advanced))
         {
@@ -152,16 +170,6 @@ internal sealed partial class SettingsWindow
             var (x, width) = (_ui.X, _ui.Width);
             _ui.X += Ui.Pad;
             _ui.Width -= Ui.Pad * 2;
-
-            // 节奏分界：色带尺跟着主手重置间隔动
-            _ui.BeginCard("rhythm", "gauge", Lang.T("节奏分界"), fill: Well);
-            var ruler = _ui.Take(118);
-            var alternate = Lang.T("左右交替");
-            SettingsArt.Ruler(new Rect(ruler.x + Ui.Pad, ruler.y + 10, ruler.width - (Ui.Pad * 2), 104), s.ResetWindowMs,
-                s.UseRoll ? Lang.T("同手轮指") : alternate, alternate, Lang.T("{0}食指单点", main), Lang.T("相邻两块砖的间隔"));
-            s.ResetWindowMs = _ui.SliderInt("reset", "clock", Lang.T("主手重置间隔"),
-                Lang.T("间隔更长时{0}食指单点；当前相当于 {1} BPM 的直线。", main, StraightBpm(s.ResetWindowMs)), s.ResetWindowMs, 100, 300, 5, v => Ms(v));
-            _ui.EndCard();
 
             _ui.BeginCard("roll", "roll", Lang.T("轮指"), fill: Well);
             s.UseRoll = _ui.Switch("roll", "roll", Lang.T("极快时同手轮指"), null, s.UseRoll);

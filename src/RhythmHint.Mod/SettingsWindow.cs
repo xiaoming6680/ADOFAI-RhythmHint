@@ -437,7 +437,7 @@ internal sealed partial class SettingsWindow
     {
         Page.Look => ("palette", Lang.T("外观"), Lang.T("音符、位置、显示、大小")),
         Page.Keys => ("keyboard", Lang.T("按键"), Lang.T("键数、键位、快捷键")),
-        Page.Rules => ("hand", Lang.T("排键"), Lang.T("排法、惯用手、高级参数")),
+        Page.Rules => ("hand", Lang.T("排键"), Lang.T("排法、节奏分界、惯用手")),
         Page.Custom => ("pen", Lang.T("专属手序"), Lang.T("为一首歌定制并分享")),
         Page.Calib => ("target", Lang.T("校准"), Lang.T("演示预览与画面偏移")),
         Page.General => ("gear", Lang.T("通用"), Lang.T("语言、更新、运行状态")),

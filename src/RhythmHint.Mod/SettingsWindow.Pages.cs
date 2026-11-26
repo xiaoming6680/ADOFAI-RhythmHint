@@ -281,35 +281,20 @@ internal sealed partial class SettingsWindow
         s.ShrinkGameView = _ui.Switch("shrink", "monitor", Lang.T("自适应游戏画幅"), Lang.T("面板显示时，游戏画面和界面文字缩到面板以外的区域。"), s.ShrinkGameView);
         _ui.EndCard();
 
-        // 子项跟着父项收起（2026-11-23 用户：设置项太多）：判定提示只画在下落面板上、多押数字只画在太鼓条上、估算难度画在 BPM 框里，
-        // 父项关掉时子项不显示（设置值不变，再打开父项还是原来的）
-        _ui.BeginCard("show", "sliders", Lang.T("显示内容"));
-        s.ShowLanes = _ui.Switch("lanes", "lanes", Lang.T("下落面板"), null, s.ShowLanes);
-        if (_ui.BeginFold("lanesItems", s.ShowLanes))
-        {
-            JudgmentChoice(s);
-        }
-
-        _ui.EndFold();
-        s.ShowTaiko = _ui.Switch("taiko", "drum", Lang.T("太鼓条"), null, s.ShowTaiko);
-        if (_ui.BeginFold("taikoItems", s.ShowTaiko))
-        {
-            s.ShowChordCount = _ui.Switch("chordCount", "chord", Lang.T("多押数字"), Lang.T("太鼓条上的三押、四押音符中间显示 3、4。"), s.ShowChordCount);
-        }
-
-        _ui.EndFold();
-        s.ShowBpm = _ui.Switch("bpm", "gauge", Lang.T("BPM 与剩余时间"), null, s.ShowBpm);
-        if (_ui.BeginFold("bpmItems", s.ShowBpm))
+        // 显示内容拆成三张抽屉卡片（2026-11-26 用户）：卡片第一行是这一项的开关，开着时下面拉开一格放它的子项，关掉时收起
+        // （2026-11-23 起子项跟着父项收起：判定提示只画在下落面板上、多押数字只画在太鼓条上、估算难度和实际 BPM 画在 BPM 框里；设置值不变）
+        s.ShowLanes = Drawer("lanes", "lanes", Lang.T("下落面板"), Lang.T("在屏幕左侧、中间或右侧显示按轨道下落的音符。"), s.ShowLanes,
+            () => JudgmentChoice(s));
+        s.ShowTaiko = Drawer("taiko", "drum", Lang.T("太鼓条"), Lang.T("在屏幕上方或下方显示横向滚动的音符。"), s.ShowTaiko,
+            () => s.ShowChordCount = _ui.Switch("chordCount", "chord", Lang.T("多押数字"), Lang.T("太鼓条上的三押、四押音符中间显示 3、4。"), s.ShowChordCount));
+        s.ShowBpm = Drawer("bpm", "gauge", Lang.T("BPM 与剩余时间"), Lang.T("在太鼓条一端显示当前 BPM 与本关剩余时间。"), s.ShowBpm, () =>
         {
             // 估算难度是试验性功能（2026-11-19 用户：试验阶段的功能统一标「试验性」），名字后面标出来
             s.ShowDifficulty = _ui.Switch("difficulty", "medal", Lang.T("估算难度"),
                 Lang.T("在 BPM 框左侧显示按本关砖块估算的 TUF 难度档位，仅供参考，并非 TUF 官方评级。"), s.ShowDifficulty, Lang.T("试验性"));
             s.ShowRealBpm = _ui.Switch("realBpm", "gauge", Lang.T("实际 BPM"),
                 Lang.T("在 BPM 数值下方显示实际按键速度，即 60 除以相邻两次按键的间隔秒数；多押按一次计，停顿超过 2 秒时不显示。"), s.ShowRealBpm);
-        }
-
-        _ui.EndFold();
-        _ui.EndCard();
+        });
 
         // 按键框的键位 2026-11-22 搬到按键页（和用几键、快捷键放一起），这里只管长什么样
         _ui.BeginCard("size", "scale", Lang.T("尺寸与速度"));
@@ -322,6 +307,30 @@ internal sealed partial class SettingsWindow
         _ui.EndCard();
 
         ResetFooter(overlay, "look", s.ResetDisplay, null);
+    }
+
+    /// <summary>
+    /// 抽屉卡片：第一行是开关（图标、名字、说明），开着时下面拉开一格（缩进、深色底）放子项，关掉时平滑收起。返回开关的新值。
+    /// </summary>
+    private bool Drawer(string id, string icon, string title, string desc, bool on, Action items)
+    {
+        _ui.BeginCard(id + "Card");
+        on = _ui.Switch(id, icon, title, desc, on);
+        if (_ui.BeginFold(id + "Items", on))
+        {
+            var (x, width) = (_ui.X, _ui.Width);
+            _ui.X += Ui.Pad;
+            _ui.Width -= Ui.Pad * 2;
+            _ui.BeginCard(id + "Drawer", fill: Well);
+            items();
+            _ui.EndCard();
+            _ui.X = x;
+            _ui.Width = width;
+        }
+
+        _ui.EndFold();
+        _ui.EndCard();
+        return on;
     }
 
     /// <summary>

@@ -67,7 +67,6 @@
   "提示音音量": "Click volume",
   "归零": "Zero",
   "对照演示的节拍：音符偏晚时调高，偏早时调低。仅影响显示。": "Compare with the demo's beat: raise it if notes arrive late, lower it if early. Affects display only.",
-  "显示内容": "Show",
   "下落面板": "Falling panel",
   "BPM 与剩余时间": "BPM and time left",
   "估算难度": "Estimated difficulty",
@@ -306,5 +305,8 @@
   "发生意外错误，详见 Unity Mod Manager 日志": "Unexpected error, see the Unity Mod Manager log",
   "\n{0} 为 {1} 键手序，与本关的 {2} 键不符，未使用。": "\n{0} is a {1}-key fingering and does not match the {2} keys used for this level, so it is not used.",
   "\n有 {0} 份与本关相近的手序键数多于 {1} 键，未使用：{2}": "\n{0} fingering(s) similar to this level have more than {1} keys and are not used: {2}",
-  "\n有 {0} 个文件无法读取：{1}（原因见日志）{2}": "\n{0} file(s) could not be read: {1} (see the log for details){2}"
+  "\n有 {0} 个文件无法读取：{1}（原因见日志）{2}": "\n{0} file(s) could not be read: {1} (see the log for details){2}",
+  "在屏幕左侧、中间或右侧显示按轨道下落的音符。": "Shows notes falling down lanes on the left, in the middle or on the right of the screen.",
+  "在屏幕上方或下方显示横向滚动的音符。": "Shows notes scrolling sideways at the top or bottom of the screen.",
+  "在太鼓条一端显示当前 BPM 与本关剩余时间。": "Shows the current BPM and the time left in the level at one end of the taiko bar."
 }

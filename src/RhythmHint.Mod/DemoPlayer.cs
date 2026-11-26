@@ -178,7 +178,7 @@ internal sealed class DemoPlayer
         _builtBpm = rounded;
         _builtKey = key;
         _builtKeys = keys;
-        _demo = DemoChart.BuildForSettings(bpm, settings.ActiveStyle);
+        _demo = DemoChart.BuildForSettings(bpm, settings.ActiveStyle, keys);
         var tiles = DemoChart.Repeat(_demo, Loops);
         _tileTimes = tiles.ConvertAll(t => t.Time).ToArray();
         var tempo = new[] { (0.0, _demo.SecondsPerBeat) };

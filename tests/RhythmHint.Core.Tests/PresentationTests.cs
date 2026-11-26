@@ -74,8 +74,8 @@ public class PresentationTests
     [InlineData(200)]
     public void SettingsDemo_SameShortRunShowsTheSelectedFingeringStyle(double bpm)
     {
-        var regular = DemoChart.BuildForSettings(bpm, FingeringStyle.TimeReset);
-        var experimental = DemoChart.BuildForSettings(bpm, FingeringStyle.ReviewPreferenceV1);
+        var regular = DemoChart.BuildForSettings(bpm, FingeringStyle.TimeReset, 4);
+        var experimental = DemoChart.BuildForSettings(bpm, FingeringStyle.ReviewPreferenceV1, 4);
 
         Assert.Equal(regular.Tiles.Select(hit => hit.Time), experimental.Tiles.Select(hit => hit.Time));
         Assert.Contains(regular.Tiles, hit => hit.HoldSeconds > 0);
@@ -90,6 +90,27 @@ public class PresentationTests
         Assert.Equal(timeReset.Select(note => note.Time), preview.Select(note => note.Time));
         Assert.Contains(timeReset, note => note.Lanes.ContainsKey(0) || note.Lanes.ContainsKey(3));
         Assert.Equal(new[] { 2, 1, 2, 1 }, preview.Select(note => Assert.Single(note.Lanes.Keys)));
+    }
+
+    [Theory]
+    [InlineData(150)] // 用户截图时的主菜单音乐
+    [InlineData(160)]
+    public void SettingsDemo_VeryFastRunOnlyForSixAndEightKeys(double bpm)
+    {
+        // 复现（2026-11-26 用户截图）：4K 演示第 13 拍起挤成一段 20 ms 一下的密楼梯，和 1.3.5 不一样；这段只为 6K、8K 看得出多指轮
+        static TileHit[] Run(DemoChart demo) =>
+            demo.Tiles.Where(t => t.Time >= (demo.SecondsPerBeat * 12) - 1e-9 && t.Time < demo.SecondsPerBeat * 14).ToArray();
+
+        var four = Run(DemoChart.BuildForSettings(bpm, FingeringStyle.TimeReset, 4));
+        Assert.Equal(16, four.Length);
+        Assert.All(four.Zip(four.Skip(1)), p => Assert.Equal(60 / bpm / 8, p.Second.Time - p.First.Time, 6));
+
+        foreach (var keys in new[] { 6, 8 })
+        {
+            var many = Run(DemoChart.BuildForSettings(bpm, FingeringStyle.TimeReset, keys));
+            Assert.Equal(18, many.Length);
+            Assert.Equal(9, many.Zip(many.Skip(1)).Count(p => Math.Abs(p.Second.Time - p.First.Time - 0.02) < 1e-6));
+        }
     }
 
     [Fact]

@@ -21,13 +21,16 @@ public sealed class DemoChart
 
     public IReadOnlyList<TileHit> Tiles { get; }
 
-    public static DemoChart Build(double bpm) => Build(bpm, forSettings: false, holdLastNote: true);
+    public static DemoChart Build(double bpm) => Build(bpm, forSettings: false, holdLastNote: true, veryFastRun: false);
 
-    /// <summary>同一段短串用来对比两种排法。审核偏好演示去掉长按，以免整段回退到时间重置法。</summary>
-    public static DemoChart BuildForSettings(double bpm, FingeringStyle style) =>
-        Build(bpm, forSettings: true, holdLastNote: style != FingeringStyle.ReviewPreferenceV1);
+    /// <summary>
+    /// 同一段短串用来对比两种排法。审核偏好演示去掉长按，以免整段回退到时间重置法。
+    /// 6K、8K 的第 13 拍起换成超快连打，4K 保持 1/8 拍连打（2026-11-26 用户：4K 恢复原样）。
+    /// </summary>
+    public static DemoChart BuildForSettings(double bpm, FingeringStyle style, int keys) =>
+        Build(bpm, forSettings: true, holdLastNote: style != FingeringStyle.ReviewPreferenceV1, veryFastRun: keys > Lanes.Count);
 
-    private static DemoChart Build(double bpm, bool forSettings, bool holdLastNote)
+    private static DemoChart Build(double bpm, bool forSettings, bool holdLastNote, bool veryFastRun)
     {
         var spb = 60.0 / bpm;
         var tiles = new List<TileHit>();
@@ -93,13 +96,14 @@ public sealed class DemoChart
         }
 
         // 第 12–13 拍：1/8 拍连打（够快，同一只手两根手指轮指 K J D F，四条轨道都用到）
-        // 设置页的演示后半拍换成每 20 ms 一下的超快连打（转角正常，像谱师用高 BPM 画的那种）：6K、8K 在这里用上外侧的手指（越快用的手指越多）
-        for (var i = 0; i < (forSettings ? 8 : 16); i++)
+        // 6K、8K 的设置页演示后半拍换成每 20 ms 一下的超快连打（转角正常，像谱师用高 BPM 画的那种）：在这里用上外侧的手指（越快用的手指越多）。
+        // 4K 只有四个键，换了只是挤成一段密楼梯，所以不换
+        for (var i = 0; i < (veryFastRun ? 8 : 16); i++)
         {
             Add(12 + (i * 0.125));
         }
 
-        if (forSettings)
+        if (veryFastRun)
         {
             for (var i = 0; i < 10; i++)
             {

@@ -82,7 +82,7 @@
 
 在「排鍵」頁還可以：
 
-- **換排法**：預設「標準」就是上面這套；「交替優先」（試驗性）讓快的四五個音的短串用左右食指交替，多押前後少換手。隨時能切回
+- **換排法**：預設「標準」就是上面這套；「交替優先」（試驗性）讓快的四五個音的短串用左右食指交替，多押前後少換手。還有兩套也是試驗性的：「按拍分手」參考拍子和進磚方向，讓兩隻手各自穩住節奏；「右手穩拍（強弱拍）」只看擊打間隔，慢的右手連敲、密的左右交替、附點節奏按同一個時間單位排。隨時能切回
 - **左撇子**：慣用手換成左手，整套左右鏡像，左手 F 為主，輪指變成 D F K J
 - **多押交給另一隻手**：比如單押右手 J、雙押左手 D F，緊挨著雙押的單押改用右手
 - **調分界線和輪指**：在「進階參數」裡，覺得不順手就自己調
@@ -141,7 +141,7 @@
 ## 致謝
 
 - 靈感和技術參考來自 B 站 UP 主 **Winkle雪线** 的[《【冰与火之舞·全节奏提示】CE-TX Dramatic Entrance!》](https://www.bilibili.com/video/BV17Agv6sEug)，謝謝！
-- 「交替優先」排法由 [Linxi-1105](https://github.com/Linxi-1105) 貢獻
+- 「交替優先」「按拍分手」「右手穩拍（強弱拍）」排法由 [Linxi-1105](https://github.com/Linxi-1105) 貢獻
 - 基於 [Unity Mod Manager](https://www.nexusmods.com/site/mods/21)
 - 難度圖示來自 [The Universal Forums Assets](https://github.com/T21C/T21C-assets)（`pguDiff/`，© 2022-2024 the Universal Forums，[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)），從 800×800 縮到 192×192；使用這些圖示不代表 TUF 認可本 Mod
 - 實機截圖來自官方關卡 CI-X《REINCARNA✝ION!! ～偶像畢業～》（7th Beat Games），樂曲 *REINCARNA✝ION!! Idol Graduation* by Turbo ft. Moon Jelly；編輯器截圖來自官方關卡 XO-X（7th Beat Games）

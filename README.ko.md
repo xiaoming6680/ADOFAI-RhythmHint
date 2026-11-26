@@ -82,7 +82,7 @@
 
 운지 페이지에서는 이런 것도 할 수 있습니다.
 
-- **배치 방식 바꾸기**: 기본값인 표준이 위의 규칙입니다. 교대 우선(시험적)은 빠른 4~5개 음의 짧은 연타를 양손 검지로 번갈아 치고, 동시 입력 앞뒤로 손을 덜 바꿉니다. 언제든 되돌릴 수 있습니다
+- **배치 방식 바꾸기**: 기본값인 표준이 위의 규칙입니다. 교대 우선(시험적)은 빠른 4~5개 음의 짧은 연타를 양손 검지로 번갈아 치고, 동시 입력 앞뒤로 손을 덜 바꿉니다. 시험적 방식이 두 가지 더 있습니다. 박자별 손 배정은 박자와 타일이 들어오는 방향을 보고 두 손이 각자 리듬을 지키게 하고, 오른손 박자 유지 (강박·약박)은 타격 간격만 보고 느린 연타는 오른손, 촘촘한 연타는 양손 교대, 부점 리듬은 같은 시간 단위로 맞춥니다. 언제든 되돌릴 수 있습니다
 - **왼손잡이**: 주로 쓰는 손을 왼손으로 바꾸면 전체가 좌우 반전되어, 왼손 F가 중심이 되고 롤은 D F K J가 됩니다
 - **동시 입력을 반대 손에**: 예를 들어 단일 노트는 오른손 J, 2키 동시는 왼손 D F에 두고, 동시 입력 바로 옆의 단일 노트는 오른손으로 옮깁니다
 - **기준 간격과 롤 조절**: 고급 설정에서, 손에 맞지 않으면 직접 조정하세요
@@ -138,7 +138,7 @@
 ## 감사의 말
 
 - 아이디어와 기술은 Bilibili 크리에이터 **Winkle雪线**의 영상 [《【冰与火之舞·全节奏提示】CE-TX Dramatic Entrance!》](https://www.bilibili.com/video/BV17Agv6sEug)을 참고했습니다. 감사합니다!
-- 교대 우선 배치 방식은 [Linxi-1105](https://github.com/Linxi-1105)님이 기여했습니다
+- 교대 우선, 박자별 손 배정, 오른손 박자 유지 (강박·약박) 배치 방식은 [Linxi-1105](https://github.com/Linxi-1105)님이 기여했습니다
 - [Unity Mod Manager](https://www.nexusmods.com/site/mods/21) 기반
 - 난이도 아이콘은 [The Universal Forums Assets](https://github.com/T21C/T21C-assets)(`pguDiff/`, © 2022-2024 the Universal Forums, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/))에서 가져와 800×800에서 192×192로 줄였습니다. 이 아이콘을 쓴다고 TUF가 이 모드를 보증하는 것은 아닙니다
 - 게임 스크린샷은 공식 레벨 CI-X "REINCARNA✝ION!! ~아이돌 졸업~" (7th Beat Games), 곡 *REINCARNA✝ION!! Idol Graduation* by Turbo ft. Moon Jelly. 편집기 스크린샷은 공식 레벨 XO-X (7th Beat Games)

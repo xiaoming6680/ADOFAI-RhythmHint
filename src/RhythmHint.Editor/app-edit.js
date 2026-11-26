@@ -250,6 +250,8 @@
     if (doc.refs.standard.size || doc.refs.alternate.size)
       html += '<div class="tool-row"><button class="btn" data-insp="standard"><span class="dot standard"></span>' + esc(state.t('col.standard')) + '</button>'
         + '<button class="btn" data-insp="alternate"><span class="dot alternate"></span>' + esc(state.t('col.alternate')) + '</button></div>';
+    if (doc.refs.steady.size)
+      html += '<div class="tool-row"><button class="btn" data-insp="steady"><span class="dot steady"></span>' + esc(state.t('col.steady')) + '</button></div>';
     html += '<div class="tool-row"><button class="btn" data-insp="revert"><svg><use href="#i-revert"/></svg>' + esc(state.t('insp.revert')) + '</button>'
       + (checkList().length ? '<button class="btn" data-insp="next"><svg><use href="#i-flag"/></svg>' + esc(state.t('insp.next')) + '</button>' : '') + '</div>';
     el.innerHTML = html;
@@ -288,7 +290,7 @@
         case 'right': applyChange(M.ops.shift(doc, notes, 1)); break;
         case 'mirror': applyChange(M.ops.mirror(doc, notes)); break;
         case 'revert': applyChange(M.ops.revert(doc, notes)); break;
-        case 'standard': case 'alternate': applyReference(b.dataset.insp, notes); break;
+        case 'standard': case 'alternate': case 'steady': applyReference(b.dataset.insp, notes); break;
         case 'next': nextCheck(); break;
       }
     }));

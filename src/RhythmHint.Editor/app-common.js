@@ -18,7 +18,7 @@
   // 每首歌的手动偏移也换了键名（songOffsets）：旧的是在补以前算错的偏移和没算进去的画面校准，留着会补过头
   const PREFS_KEY = 'rhythmhint.editor.prefs';
   const prefs = Object.assign({
-    language: '', beats: true, wave: true, gaps: true, ghost: true, track: true, standard: true, alternate: true,
+    language: '', beats: true, wave: true, gaps: true, ghost: true, track: true, standard: true, alternate: true, steady: false,
     jackMs: 150, volume: 50, refScale: 50, noteStyle: null, hitsoundOn: true, pxPerSec: 240, speed: 1, songOffsets: {}, laneKeys: null, laneKeysByCount: null, autoNext: true, wayBackTold: false, trackZoom: 1, trackBig: false,
   }, readJson(PREFS_KEY) || {});
   function readJson(key) {
@@ -46,7 +46,7 @@
     doc: null, history: null, t: null, source: '', gameSession: null, // gameSession：从游戏（或历史）打开的会话，切换键数时从它重新打开
     time: 0, pxPerSec: prefs.pxPerSec, playing: false,
     selection: new Set(), hover: null, preview: null, jacks: new Set(),
-    show: { beats: prefs.beats, wave: prefs.wave, gaps: prefs.gaps, ghost: prefs.ghost, standard: prefs.standard, alternate: prefs.alternate },
+    show: { beats: prefs.beats, wave: prefs.wave, gaps: prefs.gaps, ghost: prefs.ghost, standard: prefs.standard, alternate: prefs.alternate, steady: prefs.steady },
     loop: { a: null, b: null, on: false }, flash: [], press: [], round: false, box: null,
     leftInset: 0, rightInset: 0, waveform: null, audioOffset: 0, hitsound: prefs.hitsoundOn, lastTime: 0, refScale: prefs.refScale / 100,
     timeTarget: null, zoomTarget: null, zoomAnchor: null, anims: new Map(), now: 0, seekWarned: false,

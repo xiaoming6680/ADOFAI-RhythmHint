@@ -112,7 +112,7 @@
   }
 
   function emptyExtras() {
-    return { keyLabels: ['D', 'F', 'J', 'K'], keyChoices: [], refs: { standard: new Map(), alternate: new Map() }, beats: [], tempo: [], path: [], fx: null,
+    return { keyLabels: ['D', 'F', 'J', 'K'], keyChoices: [], refs: { standard: new Map(), alternate: new Map(), steady: new Map() }, beats: [], tempo: [], path: [], fx: null,
       audio: null, fileName: '', saveFolder: '', saveStartIn: '', usedFile: '', language: '', roundNotes: false, sessionId: '', hitSound: '', fromGame: false };
   }
 
@@ -200,7 +200,8 @@
     const fingering = parseFingering(k.fingering);
     const auto = Array.isArray(k.fromAuto) ? k.fromAuto : [];
     fingering.notes.forEach((n, i) => { n.filled = auto[i] === 1 || auto[i] === true; });
-    const refs = { standard: refMap(k.references && k.references.standard), alternate: refMap(k.references && k.references.alternate) };
+    const refs = { standard: refMap(k.references && k.references.standard), alternate: refMap(k.references && k.references.alternate),
+      steady: refMap(k.references && k.references.steady) };
     return finish(fingering, {
       keyChoices: variants.map(v => v.keys),
       keyLabels: Array.isArray(k.keyLabels) && k.keyLabels.length === fingering.keys ? k.keyLabels.map(String) : defaultLabels(fingering.keys),

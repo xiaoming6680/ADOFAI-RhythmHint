@@ -440,13 +440,20 @@ internal sealed class Overlay : MonoBehaviour
         var hits = GameReader.ReadHits(level);
         var end = hits.Count > 0 ? hits[hits.Count - 1].Time : 0;
 
-        // 节拍线从起点砖（第 0 块）开始算，只用来画；排键只看砖块之间的间隔。
+        // 节拍线从起点砖（第 0 块）开始算，双手稳拍也用这份拍线。
         // 拍子和小节从关卡变速和砖块推（BeatGrid.Infer）；交给编辑器的 tempo 仍是关卡的速度（编辑器按它算轨道预览的星球转向）
         var speeds = GameReader.ReadSpeeds(level);
         var crotchet = GameReader.Crotchet(level);
         var tempo = BeatGrid.MusicalTempo(speeds, crotchet);
-        var beats = InferBeats(hits, speeds, crotchet, tempo, level.Floors[0].entryTime, end + 2);
         var settings = Main.Settings;
+        var options = settings.ToFingering();
+        var start = level.Floors[0].entryTime;
+        var steady = options.Style == FingeringStyle.SteadyHands;
+        var beats = InferBeats(hits, speeds, crotchet, tempo, start, end + 2, steady);
+        // 双手稳拍（试验性）参考拍线和进砖方向；别的排法只看砖块间隔
+        var rhythm = steady
+            ? new FingeringRhythm(start, tempo, FingeringRhythm.IncomingDirections(GameReader.ReadPath(level, hits)), beats)
+            : null;
 
         // 先估难度（只看这一关的砖块，按关卡设定的音高换算成实际播放的时间，不算练习时临时调的速度：TUF 按原速评级），
         // 再定几键（自动选键数按它），最后按这个键数排键、套专属手序（用上的手序是 4、6、8 键时自动模式听它的）
@@ -459,7 +466,7 @@ internal sealed class Overlay : MonoBehaviour
         {
             if (!plans.TryGetValue(keys, out var notes))
             {
-                notes = NotePlanner.Plan(hits, settings.ToFingering(keys));
+                notes = NotePlanner.Plan(hits, settings.ToFingering(keys), rhythm);
                 plans[keys] = notes;
             }
 
@@ -483,11 +490,12 @@ internal sealed class Overlay : MonoBehaviour
     /// 不让它停用整个 Mod；只在第一次出错时记日志，免得每次重排都刷一遍。
     /// </summary>
     private List<BeatLine> InferBeats(List<TileHit> hits, List<(double Time, double Speed)> speeds, double crotchet,
-        List<(double Time, double SecondsPerBeat)> tempo, double start, double end)
+        List<(double Time, double SecondsPerBeat)> tempo, double start, double end, bool steady)
     {
         try
         {
-            var grid = BeatGrid.Infer(hits, speeds, crotchet, start, end);
+            var grid = steady ? BeatGrid.InferForSteadyHands(hits, speeds, crotchet, start, end)
+                : BeatGrid.Infer(hits, speeds, crotchet, start, end);
             Main.Mod.Logger.Log($"节拍线：{grid.Summary()}");
             return grid.Lines;
         }

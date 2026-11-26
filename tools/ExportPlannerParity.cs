@@ -47,11 +47,13 @@ void Add(string name, List<TileHit> hits, FingeringOptions options)
 }
 List<TileHit> Run(double gap, int count, double start = 1) =>
     Enumerable.Range(0, count).Select(i => new TileHit(i + 1, start + i * gap)).ToList();
+// 浏览器排键（note-planner.js）只有标准、交替优先两种；双手稳拍、时间稳拍（试验性，Linxi-1105）只在 C# 里，不比对
+var jsStyles = new[] { FingeringStyle.TimeReset, FingeringStyle.ReviewPreferenceV1 };
 var thresholdGaps = new[] { .035 - 1e-7, .035, .035 + 1e-7, .046875, .060 - 2e-6, .060,
     .060 + 2e-6, 1.0 / 15, .0825 - 2e-6, .0825, .0825 + 2e-6,
     .065 - 2e-6, .065, .065 + 2e-6, .13 - 2e-6, .13, .13 + 2e-6,
     .15 - 2e-6, .15, .15 + 2e-6, .165 - 2e-6, .165, .165 + 2e-6, .45, .6 };
-foreach (var style in Enum.GetValues<FingeringStyle>())
+foreach (var style in jsStyles)
 {
     foreach (var gap in thresholdGaps)
         foreach (var count in new[] { 2, 3, 4, 5, 6, 24 }) Add($"gap-{gap:R}-{count}-{style}", Run(gap, count), new() { Style = style });
@@ -126,7 +128,7 @@ foreach (var style in Enum.GetValues<FingeringStyle>())
 var manyGaps = new[] { .0325 - 2e-6, .0325, .0325 + 2e-6, .13 / 6 - 2e-6, .13 / 6, .13 / 6 + 2e-6, .012, .02, .025, .05 };
 foreach (var keys in new[] { 6, 8 })
 {
-    foreach (var style in Enum.GetValues<FingeringStyle>())
+    foreach (var style in jsStyles)
     {
         foreach (var gap in manyGaps)
             foreach (var count in new[] { 4, 5, 6, 7, 8, 13, 24 })

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq;
 using RhythmHint.Core;
 using UnityEngine;
 using static RhythmHint.WindowSkin;
@@ -21,9 +22,18 @@ internal sealed partial class SettingsWindow
     private void RulesPage(Settings s, Overlay overlay)
     {
         PageHeader(Page.Rules, Lang.T("自动排键只看本关的砖块间隔，不针对任何谱面特化；修改后立即重新排键。"));
-        StyleCard(s);
         var (right, left) = (Lang.T("右手"), Lang.T("左手"));
-        RhythmCard(s, s.LeftHanded ? left : right);
+        var (main, other) = s.LeftHanded ? (left, right) : (right, left);
+        StyleCard(s, main, other);
+
+        // 按拍分手（Linxi-1105）用自己写死的间隔，不读节奏分界、多押前后让手、同键最短间隔：选它时这几项收起来不显示（2026-11-26 用户）
+        var ownGaps = s.ActiveStyle == FingeringStyle.SteadyHands;
+        if (_ui.BeginFold("rhythmCard", !ownGaps))
+        {
+            RhythmCard(s, main);
+        }
+
+        _ui.EndFold();
 
         // 惯用手与多押：两个选择 + 键位图（主手橙框、多押用的键蓝光，左撇子是整套左右镜像）。
         // 原来下面还有一大段说明，键位图已经画清楚了，2026-11-22 重新分组时删掉
@@ -37,7 +47,7 @@ internal sealed partial class SettingsWindow
         _ui.Gap(8);
         _ui.EndCard();
 
-        AdvancedCard(s);
+        AdvancedCard(s, ownGaps);
 
         var label = Lang.T("重新排键");
         var row = _ui.Take(36);
@@ -52,28 +62,39 @@ internal sealed partial class SettingsWindow
         ResetFooter(overlay, "rules", s.ResetFingering, Lang.T("惯用手和多押用手保持不变。"));
     }
 
-    /// <summary>排法：两张卡片；选了交替优先，它自己的参数在下面展开（左边一道黄条，看得出是它专属的）。</summary>
-    private void StyleCard(Settings s)
+    /// <summary>排法：四张卡片（双手稳拍、时间稳拍是 Linxi-1105 的试验性排法）；选了交替优先，它自己的参数在下面展开（左边一道黄条，看得出是它专属的）。</summary>
+    private void StyleCard(Settings s, string main, string other)
     {
         _ui.BeginCard("style", "hand", Lang.T("排法"));
-        var standard = (Title: Lang.T("标准"), Tag: Lang.T("默认"), Desc: Lang.T("按间隔分为单点、左右交替与同手轮指，适用于大多数关卡。"));
-        var alternate = (Title: Lang.T("交替优先"), Tag: Lang.T("试验性"), Desc: Lang.T("快速的短串改用左右食指交替，多押前后少换手。"));
+        // 四种排法排成两行两列，卡片一样高（2026-11-26 用户：下面两张别单独占整行）
+        var options = new[]
+        {
+            (Id: "standard", Style: FingeringStyle.TimeReset, Title: Lang.T("标准"), Tag: Lang.T("默认"), Color: Accent2,
+                Desc: Lang.T("较慢时{0}食指连点，稍快时左右手交替，很快时同一只手几根手指轮流按。适合大多数关卡。", main)),
+            (Id: "alternate", Style: FingeringStyle.ReviewPreferenceV1, Title: Lang.T("交替优先"), Tag: Lang.T("试验性"), Color: Warn,
+                Desc: Lang.T("四五下的快速短串改用左右手食指交替，少用同一只手轮指；多押前后少换手。")),
+            (Id: "steady", Style: FingeringStyle.SteadyHands, Title: Lang.T("按拍分手"), Tag: Lang.T("试验性"), Color: Warn,
+                Desc: Lang.T("按音符落在哪一拍决定用哪只手，让两只手各自打稳自己的节奏。")),
+            (Id: "reviewedTime", Style: FingeringStyle.ReviewedTime, Title: Lang.T("右手稳拍（强弱拍）"), Tag: Lang.T("试验性"), Color: Warn,
+                Desc: Lang.T("{0}跟住均匀的主拍，{1}补主拍之间的音；只看相邻两下隔多久。", main, other)),
+        };
         var w = (_ui.Width - (Ui.Pad * 2) - 12) / 2;
-        var h = Mathf.Max(Ui.OptionHeight(w, standard.Desc, 0), Ui.OptionHeight(w, alternate.Desc, 0));
-        var row = _ui.Take(h + 8);
-        var isAlternate = s.Style == FingeringStyle.ReviewPreferenceV1;
-        if (_ui.Option("standard", new Rect(row.x + Ui.Pad, row.y + 4, w, h), !isAlternate, standard.Title, standard.Tag, Accent2, standard.Desc, 0, null))
+        var h = options.Max(o => Ui.OptionHeight(w, o.Desc, 0));
+        for (var i = 0; i < options.Length; i += 2)
         {
-            s.Style = FingeringStyle.TimeReset;
-        }
-
-        if (_ui.Option("alternate", new Rect(row.x + Ui.Pad + w + 12, row.y + 4, w, h), isAlternate, alternate.Title, alternate.Tag, Warn, alternate.Desc, 0, null))
-        {
-            s.Style = FingeringStyle.ReviewPreferenceV1;
+            var row = _ui.Take(h + 8);
+            for (var k = 0; k < 2 && i + k < options.Length; k++)
+            {
+                var o = options[i + k];
+                if (_ui.Option(o.Id, new Rect(row.x + Ui.Pad + (k * (w + 12)), row.y + 4, w, h), s.ActiveStyle == o.Style, o.Title, o.Tag, o.Color, o.Desc, 0, null))
+                {
+                    s.ActiveStyle = o.Style;
+                }
+            }
         }
 
         _ui.Gap(12);
-        if (_ui.BeginFold("alternate", s.Style == FingeringStyle.ReviewPreferenceV1))
+        if (_ui.BeginFold("alternate", s.ActiveStyle == FingeringStyle.ReviewPreferenceV1))
         {
             var (x, width) = (_ui.X, _ui.Width);
             _ui.X += Ui.Pad;
@@ -91,7 +112,7 @@ internal sealed partial class SettingsWindow
             s.KeepReviewRangesOrdered();
             s.ReviewTimingToleranceMs = _ui.Slider("tolerance", null, Lang.T("节奏允许误差"), null, s.ReviewTimingToleranceMs, 0f, 10f, 0.5f,
                 v => v.ToString("0.0", CultureInfo.InvariantCulture) + " ms");
-            _ui.Hint(Lang.T("间隔和音符数都在范围内、节奏均匀的连打改用左右食指交替；最长间隔不超过主手重置间隔的一半，更快或更长的仍按轮指。"), 10);
+            _ui.Hint(Lang.T("间隔和音符数都在范围内、节奏均匀的连打改用左右食指交替；最长间隔不超过换手间隔的一半，更快或更长的仍按轮指。"), 10);
             _ui.EndCard();
             _ui.X = x;
             _ui.Width = width;
@@ -149,8 +170,8 @@ internal sealed partial class SettingsWindow
         var alternate = Lang.T("左右交替");
         SettingsArt.Ruler(new Rect(ruler.x + Ui.Pad, ruler.y + 10, ruler.width - (Ui.Pad * 2), 104), s.ResetWindowMs,
             s.UseRoll ? Lang.T("同手轮指") : alternate, alternate, Lang.T("{0}食指单点", main), Lang.T("相邻两块砖的间隔"));
-        s.ResetWindowMs = _ui.SliderInt("reset", "clock", Lang.T("主手重置间隔"),
-            Lang.T("间隔更长时{0}食指单点；当前相当于 {1} BPM 的直线。", main, StraightBpm(s.ResetWindowMs)), s.ResetWindowMs, 100, 300, 5, v => Ms(v));
+        s.ResetWindowMs = _ui.SliderInt("reset", "clock", Lang.T("换手间隔"),
+            Lang.T("两下间隔超过此值时{0}食指连点，短于此值时左右手交替；当前相当于 {1} BPM 的直线。", main, StraightBpm(s.ResetWindowMs)), s.ResetWindowMs, 100, 300, 5, v => Ms(v));
         _ui.Hint(Lang.T("单点连打难以跟上时可调大此值，更多音符将改为左右交替。"), 10);
         _ui.EndCard();
     }
@@ -159,7 +180,7 @@ internal sealed partial class SettingsWindow
     /// 不常调的参数收在「高级参数」里，点标题展开（高度和透明度一起动）。2026-11-22 用户嫌排键页太长、找不到东西：
     /// 轮指原来单占一张卡片，也并进来分组；标题行写轮指开没开，不展开也知道现在的值。节奏分界 2026-11-25 移回外面（<see cref="RhythmCard"/>）。
     /// </summary>
-    private void AdvancedCard(Settings s)
+    private void AdvancedCard(Settings s, bool ownGaps)
     {
         _ui.BeginCard("advanced");
         var summary = Lang.T("轮指{0}", s.UseRoll ? Lang.T("开启") : Lang.T("关闭"));
@@ -186,14 +207,19 @@ internal sealed partial class SettingsWindow
             _ui.EndCard();
 
             _ui.BeginCard("chords", "chord", Lang.T("多押与连按"), fill: Well);
-            s.ChordFocusMs = _ui.SliderInt("focus", "chord", Lang.T("多押换手范围"), s.Style == FingeringStyle.ReviewPreferenceV1
-                    ? Lang.T("与多押相隔在此范围内的单押改用另一只手；交替优先排法下超出主手重置间隔的部分不起作用；0 为不换手。")
-                    : Lang.T("与多押相隔在此范围内的单押改用另一只手；0 为不换手。"),
-                s.ChordFocusMs, 0, 800, 10, v => Ms(v));
-            s.JackWindowMs = _ui.SliderInt("jack", "repeat", Lang.T("同键连按最小间隔"),
-                Lang.T("当前相当于 {0} BPM 的直线，更快时不连按同一个键。", StraightBpm(s.JackWindowMs)), s.JackWindowMs, 50, 300, 5, v => Ms(v));
-            s.ChordAngleDeg = _ui.SliderInt("angle", "angle", Lang.T("多押转角上限"),
-                Lang.T("相邻两块砖转角不超过此值、且相隔不超过 {0} 毫秒时合为多押；连续 5 块以上视为连打。", MaxChordGapMs), s.ChordAngleDeg, 0, 60, 1,
+            if (_ui.BeginFold("ownGaps", !ownGaps))
+            {
+                s.ChordFocusMs = _ui.SliderInt("focus", "chord", Lang.T("多押前后让手"), s.ActiveStyle == FingeringStyle.ReviewPreferenceV1
+                        ? Lang.T("与多押相隔不超过此值的单押交给另一只手，按多押的手专心按多押；交替优先排法下超出换手间隔的部分不起作用；0 为不让手。")
+                        : Lang.T("与多押相隔不超过此值的单押交给另一只手，按多押的手专心按多押；0 为不让手。"),
+                    s.ChordFocusMs, 0, 800, 10, v => Ms(v));
+                s.JackWindowMs = _ui.SliderInt("jack", "repeat", Lang.T("同键最短间隔"),
+                    Lang.T("同一个键两次按下至少相隔此值；当前相当于 {0} BPM 的直线。", StraightBpm(s.JackWindowMs)), s.JackWindowMs, 50, 300, 5, v => Ms(v));
+            }
+
+            _ui.EndFold();
+            s.ChordAngleDeg = _ui.SliderInt("angle", "angle", Lang.T("合成多押的转角"),
+                Lang.T("相邻两块砖的转角不超过此值、且相隔不超过 {0} 毫秒时，当作同时按下的多押；连续 5 块以上算连打。", MaxChordGapMs), s.ChordAngleDeg, 0, 60, 1,
                 v => v.ToString(CultureInfo.InvariantCulture) + "°");
             _ui.EndCard();
 

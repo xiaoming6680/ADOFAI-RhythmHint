@@ -65,6 +65,9 @@ public sealed class SessionVariant
     public IReadOnlyList<PlannedNote> Standard { get; set; } = Array.Empty<PlannedNote>();
 
     public IReadOnlyList<PlannedNote> Alternate { get; set; } = Array.Empty<PlannedNote>();
+
+    /// <summary>双手稳拍（试验性）；空则不写，编辑器不显示这一栏。</summary>
+    public IReadOnlyList<PlannedNote> Steady { get; set; } = Array.Empty<PlannedNote>();
 }
 
 /// <summary>
@@ -116,6 +119,8 @@ public sealed class EditorSession
 
     public IReadOnlyList<PlannedNote> Alternate { get; set; } = Array.Empty<PlannedNote>();
 
+    public IReadOnlyList<PlannedNote> Steady { get; set; } = Array.Empty<PlannedNote>();
+
     public IReadOnlyList<BeatLine> Beats { get; set; } = Array.Empty<BeatLine>();
 
     /// <summary>BPM 变化点：时间、BPM。</summary>
@@ -158,6 +163,7 @@ public sealed class EditorSession
                 KeyLabels = KeyLabels,
                 Standard = Standard,
                 Alternate = Alternate,
+                Steady = Steady,
             });
 
             w.WritePropertyName("beats");
@@ -303,6 +309,7 @@ public sealed class EditorSession
         w.WriteStartObject();
         CustomFingering.WriteNotes(w, "standard", v.Standard);
         CustomFingering.WriteNotes(w, "alternate", v.Alternate);
+        if (v.Steady.Count > 0) CustomFingering.WriteNotes(w, "steady", v.Steady);
         w.WriteEndObject();
     }
 

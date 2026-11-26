@@ -81,16 +81,17 @@
       const keys = this.doc ? this.doc.keys : 4;
       const showStd = state.show.standard && this.doc && this.doc.refs.standard.size > 0;
       const showAlt = state.show.alternate && this.doc && this.doc.refs.alternate.size > 0;
+      const showSteady = state.show.steady && this.doc?.refs.steady?.size > 0;
       const refPad = 0, mainPad = 0, ruler = 56, wave = state.show.wave && state.waveform ? 30 : 0, gaps = state.show.gaps ? 84 : 0; // 没有波形数据就不留这一列
       const left = state.leftInset, right = this.w - state.rightInset;
       // 轨道宽度按窗口高度定；左右放不下（抽屉和检查器都开着、窗口又不宽）就收窄
-      const refs = (showStd ? 1 : 0) + (showAlt ? 1 : 0);
+      const refs = (showStd ? 1 : 0) + (showAlt ? 1 : 0) + (showSteady ? 1 : 0);
       const fixed = mainPad * 2 + refs * refPad * 2 + ruler + wave + gaps + 24;
       const lane = Math.floor(Math.max(28, Math.min(64, (this.h - 200) / 8, (right - left - fixed) / (keys * (1 + refs * state.refScale)))));
       const refLane = Math.max(8, Math.round(lane * state.refScale)); // 参考列和当前手序的宽度比例可调，默认一半
       const refW = keys * refLane + refPad * 2;
       const mainW = keys * lane + mainPad * 2;
-      const total = (showStd ? refW : 0) + ruler + wave + mainW + gaps + (showAlt ? refW : 0);
+      const total = ruler + wave + mainW + gaps + refs * refW;
       let x = Math.max(left + 12, left + (right - left - total) / 2);
       const g = { lane, refLane, keys, top: 14, header: 40, playY: this.h - 150, s: lane / 68, sr: refLane / 68, round: !!state.round };
       g.noteTop = g.top + g.header + 6;
@@ -103,7 +104,8 @@
       g.wave = { x, w: wave }; x += wave;
       g.main = { x, w: mainW, lanesX: x + mainPad }; x += mainW;
       g.gaps = { x, w: gaps }; x += gaps;
-      if (showAlt) { g.alt = { x, w: refW, lanesX: x + refPad }; }
+      if (showAlt) { g.alt = { x, w: refW, lanesX: x + refPad }; x += refW; }
+      if (showSteady) g.steady = { x, w: refW, lanesX: x + refPad };
       this.geom = g;
       return g;
     }
@@ -154,6 +156,7 @@
       this.drawFrame(state);
       if (geo.std) this.drawReference(geo.std, 'standard', state, t0, t1);
       if (geo.alt) this.drawReference(geo.alt, 'alternate', state, t0, t1);
+      if (geo.steady) this.drawReference(geo.steady, 'steady', state, t0, t1);
       this.drawMain(state, t0, t1);
       this.drawRuler(state, t0, t1);
       if (geo.wave.w) this.drawWave(state);
@@ -208,11 +211,11 @@
       g.fillStyle = COLORS.header;
       g.fillRect(x, y, w, geo.header);
       const bodyY = y + geo.header;
-      for (const col of [geo.std, geo.main, geo.alt]) if (col) { g.fillStyle = GAME.panel; g.fillRect(col.x, bodyY, col.w, h - geo.header); }
+      for (const col of [geo.std, geo.main, geo.alt, geo.steady]) if (col) { g.fillStyle = GAME.panel; g.fillRect(col.x, bodyY, col.w, h - geo.header); }
       for (const col of [geo.ruler, geo.wave, geo.gaps]) if (col.w) { g.fillStyle = COLORS.gutter; g.fillRect(col.x, bodyY, col.w, h - geo.header); }
       g.fillStyle = COLORS.divider;
       g.fillRect(x, bodyY - 1, w, 1);
-      const edges = [geo.std && geo.std.x + geo.std.w, geo.main.x, geo.main.x + geo.main.w, geo.alt && geo.alt.x];
+      const edges = [geo.std && geo.std.x + geo.std.w, geo.main.x, geo.main.x + geo.main.w, geo.alt && geo.alt.x, geo.steady && geo.steady.x];
       for (const e of edges) if (e) g.fillRect(Math.round(e), bodyY, 1, h - geo.header);
       g.restore();
 
@@ -247,6 +250,7 @@
       title(geo.std, state.t('col.standard'), COLORS.standard);
       title(geo.main, state.t('col.current'), COLORS.accent, state.t('col.left') + ' · ' + state.t('col.right'));
       title(geo.alt, state.t('col.alternate'), COLORS.alternate);
+      title(geo.steady, state.t('col.steady'), '#9cdaa9');
     }
 
     /** 游戏里一个音符（横条或圆形）：x 是这条轨道的左边，lw 轨道宽，s 是相对 1080p 的缩放。 */

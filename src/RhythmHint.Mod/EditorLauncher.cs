@@ -74,14 +74,33 @@ internal static class EditorLauncher
         var watch = Stopwatch.StartNew();
         var settings = Main.Settings;
         // 编辑器按这一关显示的键数打开（6K、8K 的轨道写进 4 键文件会被拒绝）；另外两种键数一起带上，编辑器里能切换（2026-11-22 用户）
-        var main = Keyed(snapshot, source, snapshot.Fingering);
-        List<PlannedNote> AutoFor(int keys) => NotePlanner.Plan(snapshot.Hits, settings.ToFingering(keys));
+        // 双手稳拍（试验性）参考拍线和进砖方向：游戏里用的是它时 snapshot.Beats 就是它的拍线，否则另推一份给编辑器的参考栏
+        var path = GameReader.ReadPath(level, snapshot.Hits);
+        var start = level.Floors[0].entryTime;
+        var tempo = snapshot.Tempo.ConvertAll(t => (t.Time, 60 / t.Bpm));
+        var steadyBeats = snapshot.Beats;
+        if (settings.ActiveStyle != FingeringStyle.SteadyHands && snapshot.Hits.Count > 0)
+        {
+            try
+            {
+                steadyBeats = BeatGrid.InferForSteadyHands(snapshot.Hits, GameReader.ReadSpeeds(level),
+                    GameReader.Crotchet(level), start, snapshot.Hits[snapshot.Hits.Count - 1].Time + 2).Lines;
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or ArithmeticException or IndexOutOfRangeException)
+            {
+                Main.Mod.Logger.Warning("编辑器：双手稳拍推算拍线失败，沿用当前拍线。" + ex.Message);
+            }
+        }
+
+        var rhythm = new FingeringRhythm(start, tempo, FingeringRhythm.IncomingDirections(path), steadyBeats);
+        var main = Keyed(snapshot, source, snapshot.Fingering, rhythm);
+        List<PlannedNote> AutoFor(int keys) => NotePlanner.Plan(snapshot.Hits, settings.ToFingering(keys), rhythm);
         var variants = new List<SessionVariant>();
         foreach (var keys in KeyLayout.Modes)
         {
             if (keys != main.Fingering.Keys)
             {
-                variants.Add(Keyed(snapshot, source, source.ChooseFor(snapshot.Hits, AutoFor, settings, keys)));
+                variants.Add(Keyed(snapshot, source, source.ChooseFor(snapshot.Hits, AutoFor, settings, keys), rhythm));
             }
         }
 
@@ -101,10 +120,11 @@ internal static class EditorLauncher
             KeyLabels = main.KeyLabels,
             Standard = main.Standard,
             Alternate = main.Alternate,
+            Steady = main.Steady,
             Variants = variants,
             Beats = snapshot.Beats,
             Tempo = snapshot.Tempo,
-            Path = GameReader.ReadPath(level, snapshot.Hits),
+            Path = path,
             Audio = ExportAudio(level, snapshot.Info, id),
             HitSound = ExportHitSound(level),
             Effects = ReadEffects(level),
@@ -126,10 +146,10 @@ internal static class EditorLauncher
     }
 
     /// <summary>
-    /// 一种键数要交给编辑器的：这个键数的手序（专属手序或自动排键）、文件名、键位、两种自动排法。
+    /// 一种键数要交给编辑器的：这个键数的手序（专属手序或自动排键）、文件名、键位、几种自动排法。
     /// 用上的手序键数和这一关显示的不一样（4K 手序放进 6K 里显示）时，编辑器另存一份这个键数的，不覆盖原来那份。
     /// </summary>
-    private static SessionVariant Keyed(LevelSnapshot snapshot, FingeringSource source, FingeringResult result)
+    private static SessionVariant Keyed(LevelSnapshot snapshot, FingeringSource source, FingeringResult result, FingeringRhythm rhythm)
     {
         var settings = Main.Settings;
         var info = snapshot.Info;
@@ -157,6 +177,7 @@ internal static class EditorLauncher
             KeyLabels = labels.Length == keys ? labels : KeyBindings.Split(new Settings().KeyLabelsFor(keys), keys),
             Standard = NotePlanner.Plan(snapshot.Hits, WithStyle(FingeringStyle.TimeReset, keys)),
             Alternate = NotePlanner.Plan(snapshot.Hits, WithStyle(FingeringStyle.ReviewPreferenceV1, keys)),
+            Steady = NotePlanner.Plan(snapshot.Hits, WithStyle(FingeringStyle.SteadyHands, keys), rhythm),
         };
     }
 

@@ -44,11 +44,26 @@ public static partial class NotePlanner
     private const int RightOuter = 3;
 
     /// <param name="tiles">需要按键的砖块，按时间排好。</param>
-    public static List<PlannedNote> Plan(IReadOnlyList<TileHit> tiles, FingeringOptions options)
+    public static List<PlannedNote> Plan(IReadOnlyList<TileHit> tiles, FingeringOptions options) =>
+        Plan(tiles, options, null);
+
+    public static List<PlannedNote> Plan(IReadOnlyList<TileHit> tiles, FingeringOptions options, FingeringRhythm? rhythm)
     {
         if (!KeyLayout.IsMode(options.Keys))
         {
             throw new ArgumentOutOfRangeException(nameof(options), options.Keys, "键数只能是 4、6、8。");
+        }
+
+        // 双手稳拍、时间稳拍（试验性，Linxi-1105）：6K、8K 按他的 4K 分好手再展开（NotePlanner.SteadyManyKeys.cs）
+        if ((options.Style is FingeringStyle.SteadyHands or FingeringStyle.ReviewedTime) && options.Keys > Lanes.Count)
+        {
+            return PlanSteadyManyKeys(tiles, options, rhythm, KeyLayout.Of(options.Keys));
+        }
+
+        if (options.Style == FingeringStyle.SteadyHands)
+        {
+            var steady = SteadyHands.Plan(SteadyMoments(tiles, options), options, rhythm);
+            return options.LeftHanded ? steady.ConvertAll(note => Mirror(note, KeyLayout.Four)) : steady;
         }
 
         if (options.Style == FingeringStyle.ReviewPreferenceV1)
@@ -61,7 +76,8 @@ public static partial class NotePlanner
             return PlanManyKeys(tiles, options, KeyLayout.Of(options.Keys));
         }
 
-        var moments = Moments(tiles, options);
+        var timePhrases = options.Style == FingeringStyle.ReviewedTime;
+        var moments = timePhrases ? SteadyMoments(tiles, options) : Moments(tiles, options);
         var notes = new List<PlannedNote>(moments.Count);
         var rolled = new List<bool>(moments.Count);
         var hands = new HandState();
@@ -135,6 +151,7 @@ public static partial class NotePlanner
             ReviewPhrases(notes, options);
         }
 
+        if (timePhrases) SteadyHands.ApplyTimePhrases(moments, notes, options);
         return options.LeftHanded ? notes.ConvertAll(note => Mirror(note, KeyLayout.Four)) : notes;
     }
 
@@ -374,6 +391,30 @@ public static partial class NotePlanner
         }
 
         return moments.SelectMany(m => m.Sum(Presses) > Lanes.Count ? m.Select(t => Expand(new[] { t })) : new[] { Expand(m) }).ToList();
+    }
+
+    // Steady hands treats exactly two ordinary hits as a pair. Longer clusters
+    // keep the original times. Native multitaps always keep the game's press count.
+    private static List<List<TileHit>> SteadyMoments(IReadOnlyList<TileHit> tiles, FingeringOptions options)
+    {
+        var groups = new List<List<TileHit>>();
+        foreach (var tile in tiles)
+        {
+            var group = groups.Count == 0 ? null : groups[groups.Count - 1];
+            if (group != null && !tile.Multitap && tile.Taps <= 1 && !group[0].Multitap
+                && group[0].Taps <= 1 && SamePress(group, tile, options))
+            {
+                group.Add(tile);
+            }
+            else
+            {
+                groups.Add(new List<TileHit> { tile });
+            }
+        }
+
+        return groups.SelectMany(group => group.Count > 2
+            ? group.Select(tile => new List<TileHit> { tile })
+            : new[] { Expand(group) }).ToList();
     }
 
     /// <summary>这块砖要按几下（至少 1）。</summary>

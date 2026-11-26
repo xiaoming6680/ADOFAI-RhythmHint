@@ -130,7 +130,7 @@ public sealed class SettingsFileTests : IDisposable
         var samples = new List<Settings> { new(), SettingsFile.Load<Settings>(Copy("v1.3.1/custom.xml"), Now).Value };
         foreach (var style in Enum.GetValues<FingeringStyle>())
         {
-            samples.Add(new Settings { Style = style });
+            samples.Add(new Settings { ActiveStyle = style });
         }
 
         var serializer = new XmlSerializer(frozen);
@@ -407,7 +407,7 @@ public sealed class SettingsFileTests : IDisposable
         Assert.Equal(string.Empty, broken.FingeringChoices);
         foreach (var style in Enum.GetValues<FingeringStyle>())
         {
-            broken.Style = style;
+            broken.ActiveStyle = style;
             NotePlanner.Plan(hits, broken.ToFingering());
         }
 

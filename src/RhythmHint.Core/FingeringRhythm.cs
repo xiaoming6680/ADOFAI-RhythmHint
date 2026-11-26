@@ -4,6 +4,34 @@ using System.Runtime.CompilerServices;
 
 namespace RhythmHint.Core;
 
+public enum TrackAxis { None, Horizontal, Vertical }
+
+/// <summary>Musical tempo in chart seconds and the incoming segment of each tile.</summary>
+public sealed record FingeringRhythm(double Origin, IReadOnlyList<(double Time, double SecondsPerBeat)> Tempo,
+    IReadOnlyDictionary<int, TrackAxis>? IncomingAxes = null, IReadOnlyList<BeatLine>? Beats = null)
+{
+    public static Dictionary<int, TrackAxis> IncomingDirections(IReadOnlyList<PathPoint> path)
+    {
+        var axes = new Dictionary<int, TrackAxis>();
+        for (var i = 1; i < path.Count; i++)
+        {
+            var point = path[i];
+            if (!point.Hit) continue;
+            var angle = point.Entry;
+            if (double.IsNaN(angle))
+            {
+                var dx = point.X - path[i - 1].X;
+                var dy = point.Y - path[i - 1].Y;
+                if (Math.Abs(dx) + Math.Abs(dy) < .0001) continue;
+                angle = Math.Atan2(dy, dx);
+            }
+            if (Math.Abs(Math.Cos(angle)) >= .966) axes[point.Tile] = TrackAxis.Horizontal;
+            else if (Math.Abs(Math.Sin(angle)) >= .966) axes[point.Tile] = TrackAxis.Vertical;
+        }
+        return axes;
+    }
+}
+
 /// <summary>
 /// 一串砖的节奏：每块砖和前一块的间隔、转角、有没有长按。节奏对齐（<see cref="FingeringMatcher"/>）里反复比较，
 /// 先算好放进数组，不在几百万次比较里一次次取 TileHit。

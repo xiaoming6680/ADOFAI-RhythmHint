@@ -88,7 +88,7 @@ test('the reference panel applies a style to the selection or to the whole song'
   const doc = h.t.state.doc;
   h.railButton('refs').click();
   assert.equal(h.el('refsNone').hidden, true);
-  assert.ok(h.document.querySelectorAll('.ref-card').every(c => !c.hidden));
+  assert.ok(h.document.querySelectorAll('.ref-card').every(c => c.hidden === (c.dataset.ref === 'steady')));
   h.select(1);
   h.document.querySelector('[data-apply="alternate"][data-scope="selection"]').click();
   assert.deepEqual(lanesOf(doc.notes[1]), [0]);
@@ -108,6 +108,22 @@ test('applying a style to the whole song asks first, and nothing changes when it
   h.document.querySelector('[data-apply="alternate"][data-scope="all"]').click();
   assert.equal(asked, 1);
   assert.equal(h.t.state.history.canUndo, false);
+});
+
+test('the steady reference can be shown and applied to a selected note', () => {
+  const data = withAlternate();
+  data.references.steady = data.references.alternate;
+  const h = boot({ session: data });
+  h.frames(2);
+  h.railButton('refs').click();
+  assert.equal(h.document.querySelector('[data-ref="steady"]').hidden, false);
+  const box = h.document.querySelector('[data-show-ref="steady"]');
+  box.checked = true;
+  box.dispatch('change');
+  assert.equal(h.t.state.show.steady, true);
+  h.select(1);
+  h.document.querySelector('[data-apply="steady"][data-scope="selection"]').click();
+  assert.deepEqual(lanesOf(h.t.state.doc.notes[1]), [0]);
 });
 
 test('the reference columns can be hidden, and that is remembered', () => {

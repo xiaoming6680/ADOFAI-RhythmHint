@@ -408,7 +408,8 @@ internal static class WindowSkin
             return 0;
         }
 
-        var key = (text, size, Mathf.RoundToInt(width), face, bold);
+        // 向下取整：按比画的宽度略窄的宽度量，临界时宁可多算一行，不让字掉出卡片（四舍五入会量宽、少算一行）
+        var key = (text, size, Mathf.FloorToInt(width), face, bold);
         if (!Heights.TryGetValue(key, out var result))
         {
             Content.text = text;

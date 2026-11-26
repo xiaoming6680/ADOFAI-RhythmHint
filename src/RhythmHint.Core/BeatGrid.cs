@@ -112,6 +112,11 @@ public static class BeatGrid
     public static BeatMap Infer(IReadOnlyList<TileHit> hits, IReadOnlyList<(double Time, double Speed)> speeds, double crotchetAtStart, double start, double end) =>
         BeatInference.Infer(hits, speeds, crotchetAtStart, start, end);
 
+    /// <summary>双手稳拍的拍网保留每块砖的时刻，以便密集拍中的细分参与判断。</summary>
+    public static BeatMap InferForSteadyHands(IReadOnlyList<TileHit> hits, IReadOnlyList<(double Time, double Speed)> speeds,
+        double crotchetAtStart, double start, double end) =>
+        BeatInference.Infer(hits, speeds, crotchetAtStart, start, end, mergeOnsets: false);
+
     /// <summary>时间 t 是否落在某条节拍线上（误差不超过一拍的 tolerance 倍）。</summary>
     public static bool IsOnBeat(IReadOnlyList<BeatLine> lines, double t, double tolerance = 0.03)
     {

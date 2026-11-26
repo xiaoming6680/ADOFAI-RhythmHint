@@ -58,7 +58,8 @@ levels.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));
 
 // 排键开关的 16 种组合 × 两种排法，再加几组改了时间参数的
 var variants = new List<(string Name, FingeringOptions Options)>();
-foreach (var style in Enum.GetValues<FingeringStyle>())
+// 只转储标准、交替优先，和以前的转储逐字节比对；双手稳拍、时间稳拍（试验性）不在这里
+foreach (var style in new[] { FingeringStyle.TimeReset, FingeringStyle.ReviewPreferenceV1 })
 {
     for (var mask = 0; mask < 16; mask++)
     {

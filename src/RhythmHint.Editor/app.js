@@ -99,9 +99,9 @@
       $('fStats').innerHTML = stat(s.notes, state.t('file.statNotes')) + stat(s.changed, state.t('file.statChanged'), s.changed > 0)
         + stat(s.auto, state.t('file.statAuto')) + stat(App.countJackPairs(), state.t('file.statJacks'));
     } else $('fStats').innerHTML = '';
-    const hasRefs = doc && (doc.refs.standard.size || doc.refs.alternate.size);
+    const hasRefs = doc && Object.values(doc.refs).some(ref => ref.size);
     $('refsNone').hidden = !!hasRefs || !doc;
-    document.querySelectorAll('.ref-card').forEach(c => { c.hidden = !hasRefs; });
+    document.querySelectorAll('.ref-card').forEach(c => { c.hidden = !doc?.refs[c.dataset.ref]?.size; });
   }
   $('fAuthor').addEventListener('input', e => { if (state.doc) { state.doc.meta.author = e.target.value; markMetaDirty(); } });
   $('fComment').addEventListener('input', e => { if (state.doc) { state.doc.meta.comment = e.target.value; markMetaDirty(); } });

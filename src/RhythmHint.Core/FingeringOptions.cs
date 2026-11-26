@@ -5,6 +5,8 @@ public enum FingeringStyle
 {
     TimeReset,
     ReviewPreferenceV1,
+    SteadyHands,
+    ReviewedTime,
 }
 
 /// <summary>排键参数（单位：秒）。对所有关卡一视同仁。</summary>
@@ -90,4 +92,7 @@ public sealed class FingeringOptions
     /// 紧挨着双押的单押改由主手按；左撇子时整体镜像，双押优先右手 J+K。双押同手这条照样成立。
     /// </summary>
     public bool ChordsOnOtherHand { get; set; }
+
+    /// <summary>复制一份（只有值类型的属性，浅复制就够）。</summary>
+    public FingeringOptions Copy() => (FingeringOptions)MemberwiseClone();
 }

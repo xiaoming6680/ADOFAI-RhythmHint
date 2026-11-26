@@ -93,10 +93,11 @@ internal static class BeatInference
     /// 一拍、起止时间不是有限数时不画；变速点、砖块时间不是有限数的那一项跳过（Segments、Onsets）。
     /// 复现（2026-11-19 评审）：一拍 +∞、速度 NaN 或 ∞ 时主 BPM 那一类找不到段，First() 抛 InvalidOperationException。
     /// </summary>
-    internal static BeatMap Infer(IReadOnlyList<TileHit> hits, IReadOnlyList<(double Time, double Speed)> speeds, double crotchet, double start, double end)
+    internal static BeatMap Infer(IReadOnlyList<TileHit> hits, IReadOnlyList<(double Time, double Speed)> speeds, double crotchet,
+        double start, double end, bool mergeOnsets = true)
     {
         var map = new BeatMap();
-        var onsets = Onsets(hits);
+        var onsets = Onsets(hits, mergeOnsets);
         if (onsets.Count == 0 || !(crotchet > 0) || !IsFinite(crotchet) || !IsFinite(start) || !IsFinite(end) || end <= start)
         {
             return map;
@@ -121,7 +122,7 @@ internal static class BeatInference
     /// 合并同时按的砖（排键默认的多押规则，再加上和这一组第一块相隔不到 SameTime 的：有的谱用两个极端 BPM 交替、180° 转角画伪双押），
     /// 记下多押几块、长按、和上一下隔多久。
     /// </summary>
-    private static List<Onset> Onsets(IReadOnlyList<TileHit> hits)
+    private static List<Onset> Onsets(IReadOnlyList<TileHit> hits, bool mergeOnsets)
     {
         var o = new FingeringOptions();
         var onsets = new List<Onset>();
@@ -133,7 +134,7 @@ internal static class BeatInference
                 continue; // 坏数据：画不出来，也不能让它打乱二分查找
             }
 
-            var same = onsets.Count > 0 && (h.Time - groupStart < SameTime || (double.IsNaN(h.Angle)
+            var same = mergeOnsets && onsets.Count > 0 && (h.Time - groupStart < SameTime || (double.IsNaN(h.Angle)
                 ? h.Time - groupStart < o.ChordWindow
                 : h.Angle <= o.ChordAngle + 1e-3 && h.Time - last <= o.ChordMaxGap + 1e-6));
             if (same)

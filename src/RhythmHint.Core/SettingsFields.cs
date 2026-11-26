@@ -163,6 +163,22 @@ public sealed partial class Settings
     /// <summary>排法：标准（时间重置法，默认）或交替优先（试验性）。</summary>
     public FingeringStyle Style = FingeringStyle.TimeReset;
 
+    // A separate field lets older versions continue reading their Style values.
+    public bool UseSteadyHands;
+    public bool UseReviewedTime;
+
+    [System.Xml.Serialization.XmlIgnore]
+    public FingeringStyle ActiveStyle
+    {
+        get => UseReviewedTime ? FingeringStyle.ReviewedTime : UseSteadyHands ? FingeringStyle.SteadyHands : Style;
+        set
+        {
+            UseSteadyHands = value == FingeringStyle.SteadyHands;
+            UseReviewedTime = value == FingeringStyle.ReviewedTime;
+            if (!UseSteadyHands && !UseReviewedTime) Style = value;
+        }
+    }
+
     /// <summary>
     /// 默认值改过几次（见 <see cref="MigrateDefaults"/>）。0 = 老设置文件或新装；新装时本来就是新默认，迁移不改什么。
     /// </summary>
@@ -489,7 +505,7 @@ public sealed partial class Settings
         JackWindowMs = d.JackWindowMs;
         UseRoll = d.UseRoll;
         OuterRoll = d.OuterRoll;
-        Style = d.Style;
+        ActiveStyle = d.ActiveStyle;
         ReviewShortMinGapMs = d.ReviewShortMinGapMs;
         ReviewShortMaxGapMs = d.ReviewShortMaxGapMs;
         ReviewShortMinNotes = d.ReviewShortMinNotes;
@@ -514,7 +530,7 @@ public sealed partial class Settings
         bool AutoKeyCount, int KeyCount, int SixKeysFromTier, int EightKeysFromTier)
     {
         public static PlanInputs Of(Settings s) => new(
-            s.ChordAngleDeg, s.ResetWindowMs, s.ChordFocusMs, s.JackWindowMs, s.UseRoll, s.OuterRoll, s.Style,
+            s.ChordAngleDeg, s.ResetWindowMs, s.ChordFocusMs, s.JackWindowMs, s.UseRoll, s.OuterRoll, s.ActiveStyle,
             s.ReviewShortMinGapMs, s.ReviewShortMaxGapMs, s.ReviewShortMinNotes, s.ReviewShortMaxNotes, s.ReviewTimingToleranceMs,
             s.LeftHanded, s.ChordsOnOtherHand, s.UseCustomFingering,
             s.AutoKeyCount, s.KeyCount, s.SixKeysFromTier, s.EightKeysFromTier);

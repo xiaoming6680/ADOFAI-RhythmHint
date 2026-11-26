@@ -82,7 +82,7 @@ Triples and quads are recognized too (purple): for a triple, the chord hand pres
 
 On the Fingering page you can also:
 
-- **Change the fingering style**: the default, Standard, is the set of rules above; Alternate first (experimental) alternates both index fingers on fast short runs of four or five notes, with fewer hand changes around chords. You can switch back at any time
+- **Change the fingering style**: the default, Standard, is the set of rules above; Alternate first (experimental) alternates both index fingers on fast short runs of four or five notes, with fewer hand changes around chords. Two more styles are experimental too: Hands by beat uses the beat and the direction each tile comes from to keep each hand on its own rhythm; Steady right hand (strong and weak beats) only looks at hit intervals, so slow hits stay on the right hand, dense ones alternate and dotted rhythms share one time unit. You can switch back at any time
 - **Play left-handed**: set the dominant hand to left to mirror everything, with left F as the main key and rolls as D F K J
 - **Put chords on the other hand**: for example, single notes on right J and doubles on left D F, with single notes next to a double moving to the right hand
 - **Adjust the thresholds and rolls** under Advanced if something doesn't feel right
@@ -138,7 +138,7 @@ To build it yourself, see the [development notes](docs/开发说明.md) (in Chin
 ## Credits
 
 - Inspired by, and technically based on, the video [《【冰与火之舞·全节奏提示】CE-TX Dramatic Entrance!》](https://www.bilibili.com/video/BV17Agv6sEug) by Bilibili creator **Winkle雪线**. Thank you!
-- The Alternate first fingering style was contributed by [Linxi-1105](https://github.com/Linxi-1105)
+- The Alternate first, Hands by beat and Steady right hand (strong and weak beats) fingering styles were contributed by [Linxi-1105](https://github.com/Linxi-1105)
 - Built on [Unity Mod Manager](https://www.nexusmods.com/site/mods/21)
 - Difficulty icons from [The Universal Forums Assets](https://github.com/T21C/T21C-assets) (`pguDiff/`, © 2022-2024 the Universal Forums, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)), scaled from 800×800 to 192×192. Using these icons does not mean TUF endorses this mod
 - In-game screenshots are from the official level CI-X "REINCARNA✝ION!! ~Idol Graduation~" (7th Beat Games), music *REINCARNA✝ION!! Idol Graduation* by Turbo ft. Moon Jelly; the editor screenshot is from the official level XO-X (7th Beat Games)

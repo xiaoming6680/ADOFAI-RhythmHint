@@ -411,6 +411,7 @@ input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border: 0; bo
 .dot { width: 9px; height: 9px; border-radius: 50%; }
 .dot.standard { background: #8fd3ff; }
 .dot.alternate { background: #ffd08f; }
+.dot.steady { background: #9cdaa9; }
 
 .audio-file { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); color: var(--text-2); }
 .audio-file span { overflow-wrap: anywhere; }

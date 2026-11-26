@@ -102,7 +102,13 @@ internal sealed partial class SettingsWindow
         var sub = snapshot != null ? Lang.T(snapshot.Fingering.Status)
             : s.ShowPreview ? Lang.T("正在播放演示，修改设置后可直接查看效果。")
             : Lang.T("关卡外不播放演示，可在校准页开启。");
-        var style = s.Style == FingeringStyle.ReviewPreferenceV1 ? Lang.T("交替优先") : Lang.T("标准");
+        var style = s.ActiveStyle switch
+        {
+            FingeringStyle.SteadyHands => Lang.T("按拍分手"),
+            FingeringStyle.ReviewedTime => Lang.T("右手稳拍（强弱拍）"),
+            FingeringStyle.ReviewPreferenceV1 => Lang.T("交替优先"),
+            _ => Lang.T("标准"),
+        };
         var offset = (s.VisualOffsetMs > 0 ? "+" : string.Empty) + Ms(s.VisualOffsetMs);
         var chips = Ui.ChipWidth(style) + Ui.ChipWidth(offset, Face.Mono) + 8;
 

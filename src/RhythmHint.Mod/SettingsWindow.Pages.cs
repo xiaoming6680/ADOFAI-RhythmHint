@@ -298,6 +298,8 @@ internal sealed partial class SettingsWindow
             // 估算难度是试验性功能（2026-11-19 用户：试验阶段的功能统一标「试验性」），名字后面标出来
             s.ShowDifficulty = _ui.Switch("difficulty", "medal", Lang.T("估算难度"),
                 Lang.T("在 BPM 框左侧显示按本关砖块估算的 TUF 难度档位，仅供参考，并非 TUF 官方评级。"), s.ShowDifficulty, Lang.T("试验性"));
+            s.ShowRealBpm = _ui.Switch("realBpm", "gauge", Lang.T("实际 BPM"),
+                Lang.T("在 BPM 数值下方显示实际按键速度，即 60 除以相邻两次按键的间隔秒数；多押按一次计，停顿超过 2 秒时不显示。"), s.ShowRealBpm);
         }
 
         _ui.EndFold();

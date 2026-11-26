@@ -44,6 +44,12 @@ public sealed partial class Settings
     public bool ShowDifficulty = true;
 
     /// <summary>
+    /// BPM 框里「BPM」那一行左边显示实际 BPM（60 ÷ 两下按键的间隔，2026-11-26 玩家：打雪花、直线这类匀速段时当按键速度的参考）。
+    /// 所有人默认开；BPM 框关掉时也不画。1.3.x 不认这个字段，不画。
+    /// </summary>
+    public bool ShowRealBpm = true;
+
+    /// <summary>
     /// 太鼓条上三押、四押的紫球中间写 3、4（2026-11-19 用户：只开太鼓条的玩家看不懂紫色，要能关）。
     /// 1.3.1 之后新加的字段：老版本读到会跳过，老文件里没有它就是默认值。
     /// </summary>
@@ -446,6 +452,7 @@ public sealed partial class Settings
         TaikoAtBottom = d.TaikoAtBottom;
         ShowBpm = d.ShowBpm;
         ShowDifficulty = d.ShowDifficulty;
+        ShowRealBpm = d.ShowRealBpm;
         ShowChordCount = d.ShowChordCount;
         ShowJudgments = d.ShowJudgments;
         ShowPerfectJudgments = d.ShowPerfectJudgments;

@@ -10,6 +10,9 @@ internal sealed class OverlayFrame
 {
     public double Now;
     public float Bpm;
+
+    /// <summary>将要按的这一下和上一下之间的实际 BPM（<see cref="RhythmHint.Core.RealBpm"/>）；0 表示没有（还没开始、停顿、按完了）。</summary>
+    public float RealBpm;
     public double EndTime;
     public int NextNote;
 

@@ -36,7 +36,7 @@ internal static class TopBarView
     public static void DrawBox(OverlayFrame f, OverlayLayout l, Settings s)
     {
         var box = new Rect(l.BoxX, l.BoxY, l.PanelWidth, l.RowHeight);
-        DrawBpmBox(f, l, box);
+        DrawBpmBox(f, l, box, s.ShowRealBpm);
         if (s.ShowDifficulty)
         {
             DifficultyBadge.Draw(box, l.Scale, f.DifficultyTier);
@@ -64,7 +64,7 @@ internal static class TopBarView
             Mathf.RoundToInt(18 * l.Scale), new Color(1f, 0.85f, 0.4f), true, onRight ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft);
     }
 
-    private static void DrawBpmBox(OverlayFrame f, OverlayLayout l, Rect box)
+    private static void DrawBpmBox(OverlayFrame f, OverlayLayout l, Rect box, bool realBpm)
     {
         Painter.Rect(box, Painter.BpmBoxColor);
         var right = box.width - (18 * l.Scale);
@@ -72,6 +72,13 @@ internal static class TopBarView
             Mathf.RoundToInt(56 * l.Scale), Color.white, TextAnchor.MiddleRight, true);
         Painter.Text(new Rect(box.x, box.y + (66 * l.Scale), right, 20 * l.Scale), "BPM",
             Mathf.RoundToInt(16 * l.Scale), new Color(0.85f, 0.9f, 1f), TextAnchor.MiddleRight, true);
+        if (realBpm)
+        {
+            // 实际 BPM 放在「BPM」左边同一行（2026-11-26 用户选方案 A：大号数字仍是砖块 BPM）；停顿、还没开始时写「-」，这一行不跳
+            var real = f.RealBpm > 0 ? Mathf.RoundToInt(f.RealBpm).ToString() : "-";
+            Painter.Text(new Rect(box.x, box.y + (66 * l.Scale), right - (46 * l.Scale), 20 * l.Scale), Lang.T("实际 {0}", real),
+                Mathf.RoundToInt(16 * l.Scale), new Color(1f, 0.85f, 0.4f), TextAnchor.MiddleRight, true);
+        }
 
         var left = System.Math.Max(0, f.EndTime - f.Now);
         var text = $"{(int)(left / 60)}:{(int)(left % 60):00}";

@@ -102,6 +102,7 @@ internal sealed class DemoPlayer
         frame.Now = shown + (settings.VisualOffsetMs / 1000.0);
         frame.EndTime = shown + loop;
         frame.TrackHits(CountReached(frame.Now));
+        frame.RealBpm = (float)RealBpm.At(frame.Notes, frame.NextNote, music ? pitch : 1);
         if (sampleJudgments)
         {
             AddSampleJudgments(frame, settings);

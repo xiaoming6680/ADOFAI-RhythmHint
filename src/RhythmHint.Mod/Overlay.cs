@@ -420,6 +420,7 @@ internal sealed class Overlay : MonoBehaviour
         Frame.Now = _clock.Advance(song + (settings.VisualOffsetMs / 1000.0), failed);
         Frame.Bpm = GameReader.CurrentBpm(level);
         Frame.TrackHits(level.Controller.currentSeqID);
+        Frame.RealBpm = (float)RealBpm.At(Frame.Notes, Frame.NextNote, conductor.song != null ? conductor.song.pitch : 1f);
         _judgments.Update(level, Frame, settings);
 
         if (won || (!failed && Frame.NextNote >= Frame.Notes.Count && Frame.Now > Frame.EndTime + ExitAfterLastNote))

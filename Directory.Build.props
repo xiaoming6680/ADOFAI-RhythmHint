@@ -2,7 +2,7 @@
   <!-- 版本号唯一来源：Mod 的 Info.json 在编译时由这里生成。
        写成 VersionPrefix，SDK 会拼上 VersionSuffix 得到 Version（装进游戏的测试版自动加 -dev，见 Mod 项目） -->
   <PropertyGroup>
-    <VersionPrefix>1.3.5</VersionPrefix>
+    <VersionPrefix>1.5.0</VersionPrefix>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>

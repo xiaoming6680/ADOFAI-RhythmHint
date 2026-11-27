@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Settings xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <ShowPreview>true</ShowPreview>
+  <PreviewSound>true</PreviewSound>
+  <PreviewVolume>0.6</PreviewVolume>
+  <ShrinkGameView>true</ShrinkGameView>
+  <ShowLanes>true</ShowLanes>
+  <RoundNotes>false</RoundNotes>
+  <ShowTaiko>true</ShowTaiko>
+  <ShowBpm>true</ShowBpm>
+  <ShowDifficulty>true</ShowDifficulty>
+  <ShowRealBpm>true</ShowRealBpm>
+  <ShowChordCount>true</ShowChordCount>
+  <ShowJudgments>true</ShowJudgments>
+  <ShowPerfectJudgments>false</ShowPerfectJudgments>
+  <LanesOnRight>false</LanesOnRight>
+  <TaikoAtBottom>false</TaikoAtBottom>
+  <LanesInCenter>false</LanesInCenter>
+  <UiScale>1</UiScale>
+  <LaneSpeed>1</LaneSpeed>
+  <TaikoSpeed>1</TaikoSpeed>
+  <PanelOpacity>0.92</PanelOpacity>
+  <NoteOpacity>1</NoteOpacity>
+  <VisualOffsetMs>0</VisualOffsetMs>
+  <KeyLabels>D F J K</KeyLabels>
+  <KeyLabels6>S D F J K L</KeyLabels6>
+  <KeyLabels8>A S D F J K L ;</KeyLabels8>
+  <LightKeysOnPress>true</LightKeysOnPress>
+  <SettingsHotkey>F8</SettingsHotkey>
+  <Language />
+  <LatestVersion />
+  <AutoUpdate>true</AutoUpdate>
+  <GuideVersion>0</GuideVersion>
+  <ChordAngleDeg>30</ChordAngleDeg>
+  <ResetWindowMs>130</ResetWindowMs>
+  <ChordFocusMs>450</ChordFocusMs>
+  <JackWindowMs>150</JackWindowMs>
+  <UseRoll>true</UseRoll>
+  <OuterRoll>true</OuterRoll>
+  <Style>TimeReset</Style>
+  <UseSteadyHands>false</UseSteadyHands>
+  <UseReviewedTime>false</UseReviewedTime>
+  <DefaultsRevision>0</DefaultsRevision>
+  <ReviewShortMinGapMs>60</ReviewShortMinGapMs>
+  <ReviewShortMaxGapMs>82.5</ReviewShortMaxGapMs>
+  <ReviewShortMinNotes>4</ReviewShortMinNotes>
+  <ReviewShortMaxNotes>5</ReviewShortMaxNotes>
+  <ReviewTimingToleranceMs>1</ReviewTimingToleranceMs>
+  <UseCustomFingering>true</UseCustomFingering>
+  <FingeringChoices />
+  <LeftHanded>false</LeftHanded>
+  <ChordsOnOtherHand>false</ChordsOnOtherHand>
+  <AutoKeyCount>true</AutoKeyCount>
+  <KeyCount>4</KeyCount>
+  <SixKeysFromTier>21</SixKeysFromTier>
+  <EightKeysFromTier>46</EightKeysFromTier>
+</Settings>

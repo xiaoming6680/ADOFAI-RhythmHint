@@ -4,7 +4,7 @@
 
 What changed in each version, newest first.
 
-## Unreleased
+## 1.5.0 · 2026-11-26
 
 - New 6K (S D F J K L) and 8K (A S D F J K L ;), experimental. By default the key count is chosen from the estimated difficulty: P tiers stay 4K, 6K from G1, 8K from U6; a custom fingering in use is shown with its own key count. Under F8 → Keys you can turn the automatic choice off and pick 4K / 6K / 8K, or change the tiers where 6K and 8K start; the keys for each key count are set there too
 - 6K and 8K have a layout of their own instead of copying 4K: slow notes on the right index finger, medium ones alternating the index fingers; fast runs roll from the outside in to the index finger on one hand and move to the other hand only once every finger of the first has played, so short runs keep off the middle whenever they can (K J for two notes and L K J for three in 6K; long runs L K J S D F in 6K, ; L K J A S D F in 8K); chords stay on one hand when it has enough fingers; where a finger would have to press again before it could rest (such as the same key right after a double), another rested finger takes the note. 4K fingering is unchanged, note for note

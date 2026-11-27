@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Settings xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <ShowPreview>false</ShowPreview>
+  <PreviewSound>false</PreviewSound>
+  <PreviewVolume>0.35</PreviewVolume>
+  <ShrinkGameView>false</ShrinkGameView>
+  <ShowLanes>false</ShowLanes>
+  <RoundNotes>true</RoundNotes>
+  <ShowTaiko>false</ShowTaiko>
+  <ShowBpm>false</ShowBpm>
+  <ShowDifficulty>false</ShowDifficulty>
+  <ShowRealBpm>false</ShowRealBpm>
+  <ShowChordCount>false</ShowChordCount>
+  <ShowJudgments>false</ShowJudgments>
+  <ShowPerfectJudgments>true</ShowPerfectJudgments>
+  <LanesOnRight>false</LanesOnRight>
+  <TaikoAtBottom>true</TaikoAtBottom>
+  <LanesInCenter>true</LanesInCenter>
+  <UiScale>1.25</UiScale>
+  <LaneSpeed>1.85</LaneSpeed>
+  <TaikoSpeed>0.7</TaikoSpeed>
+  <PanelOpacity>0.55</PanelOpacity>
+  <NoteOpacity>0.6</NoteOpacity>
+  <VisualOffsetMs>-37</VisualOffsetMs>
+  <KeyLabels>S D K L</KeyLabels>
+  <KeyLabels6>W E R U I O</KeyLabels6>
+  <KeyLabels8>Q W E R U I O P</KeyLabels8>
+  <LightKeysOnPress>false</LightKeysOnPress>
+  <SettingsHotkey>F9</SettingsHotkey>
+  <Language>ja</Language>
+  <LatestVersion>1.3.5</LatestVersion>
+  <AutoUpdate>false</AutoUpdate>
+  <GuideVersion>1</GuideVersion>
+  <ChordAngleDeg>15</ChordAngleDeg>
+  <ResetWindowMs>180</ResetWindowMs>
+  <ChordFocusMs>300</ChordFocusMs>
+  <JackWindowMs>120</JackWindowMs>
+  <UseRoll>false</UseRoll>
+  <OuterRoll>false</OuterRoll>
+  <Style>ReviewPreferenceV1</Style>
+  <UseSteadyHands>true</UseSteadyHands>
+  <UseReviewedTime>false</UseReviewedTime>
+  <DefaultsRevision>2</DefaultsRevision>
+  <ReviewShortMinGapMs>55</ReviewShortMinGapMs>
+  <ReviewShortMaxGapMs>72.5</ReviewShortMaxGapMs>
+  <ReviewShortMinNotes>3</ReviewShortMinNotes>
+  <ReviewShortMaxNotes>7</ReviewShortMaxNotes>
+  <ReviewTimingToleranceMs>2.5</ReviewTimingToleranceMs>
+  <UseCustomFingering>false</UseCustomFingering>
+  <FingeringChoices>812-3f9a0c1b2d4e5f60718293a4	Song (2).json
+95-0a1b2c3d4e5f60718293a4b5	</FingeringChoices>
+  <LeftHanded>true</LeftHanded>
+  <ChordsOnOtherHand>true</ChordsOnOtherHand>
+  <AutoKeyCount>false</AutoKeyCount>
+  <KeyCount>6</KeyCount>
+  <SixKeysFromTier>25</SixKeysFromTier>
+  <EightKeysFromTier>50</EightKeysFromTier>
+</Settings>

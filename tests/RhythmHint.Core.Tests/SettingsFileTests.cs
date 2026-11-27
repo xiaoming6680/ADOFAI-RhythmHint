@@ -12,7 +12,7 @@ namespace RhythmHint.Core.Tests;
 /// 读失败时不整份重置（UMM 的 ModSettings.Load 会），先另存原文件再逐项读回。
 /// <para>
 /// 样例 fixtures/settings/v*/ 是按 v1.2.1、v1.3.0、v1.3.1 标签的 Settings.cs 写出来的（v1.3.2 只比 v1.3.1 多一项 ShowChordCount、默认值都没变，
-/// 是在 v1.3.1 的样例里 ShowDifficulty 后面插这一项得到的）（default = 新装第一次启动后存的，
+/// 是在 v1.3.1 的样例里 ShowDifficulty 后面插这一项得到的；v1.5.0 是用当时的 Settings 和 XmlSerializer 直接写出的，custom 在 v1.3.2 的 custom 上把新加的 13 项也改成界面调得出的非默认值）（default = 新装第一次启动后存的，
 /// custom = 每一项都改成界面上调得出来的非默认值）：把那一版的 Settings.cs、FingeringOptions.cs 和一个空的 UMM 基类编在一起，
 /// 用 XmlSerializer 和 UMM 一样经 StreamWriter 写出，根元素的命名空间声明换成游戏里 Mono 的顺序（对照过游戏目录里真实的文件）。
 /// 只能加新版本的样例，不能改已有的：它们代表玩家手里已有的文件。
@@ -66,7 +66,7 @@ public sealed class SettingsFileTests : IDisposable
     {
         // 每发一版改了 Settings 字段的版本，就在这里加一份样例（只加不改）
         var versions = Directory.GetDirectories(Fixtures).Select(Path.GetFileName).Order(StringComparer.Ordinal).ToList();
-        Assert.Equal(new[] { "v1.2.1", "v1.3.0", "v1.3.1", "v1.3.2" }, versions);
+        Assert.Equal(new[] { "v1.2.1", "v1.3.0", "v1.3.1", "v1.3.2", "v1.5.0" }, versions);
         Assert.All(versions, v =>
         {
             Assert.True(File.Exists(Path.Combine(Fixtures, v!, "default.xml")));
@@ -107,6 +107,8 @@ public sealed class SettingsFileTests : IDisposable
     [InlineData("v1.3.1/custom.xml", typeof(Settings131))]
     [InlineData("v1.3.2/default.xml", typeof(Settings132))]
     [InlineData("v1.3.2/custom.xml", typeof(Settings132))]
+    [InlineData("v1.5.0/default.xml", typeof(Settings150))]
+    [InlineData("v1.5.0/custom.xml", typeof(Settings150))]
     public void SamplesAreExactlyWhatThatVersionWrites(string sample, Type frozen)
     {
         // 样例本身对不对：交给那一版的字段读进来、再写出去，逐项一样，字段也一个不多一个不少
@@ -119,7 +121,7 @@ public sealed class SettingsFileTests : IDisposable
         Assert.Equal(Elements(text), Elements(writer.ToString()));
     }
 
-    public static TheoryData<Type> OldReaders => new() { typeof(Settings130), typeof(Settings131), typeof(Settings132) };
+    public static TheoryData<Type> OldReaders => new() { typeof(Settings130), typeof(Settings131), typeof(Settings132), typeof(Settings150) };
 
     [Theory]
     [MemberData(nameof(OldReaders))]
@@ -173,7 +175,7 @@ public sealed class SettingsFileTests : IDisposable
     {
         // 现在写出的元素 = 已发布各版的元素按原顺序都在，新加的只能接在后面或插在中间，不能少、不能改名
         var current = Elements(Serialize(new Settings())).Select(e => e.Name).ToList();
-        foreach (var version in new[] { "v1.3.1", "v1.3.2" })
+        foreach (var version in new[] { "v1.3.1", "v1.3.2", "v1.5.0" })
         {
             var released = Elements(File.ReadAllText(Path.Combine(Fixtures, version, "default.xml"))).Select(e => e.Name).ToList();
             Assert.Equal(released, current.Where(released.Contains).ToList());

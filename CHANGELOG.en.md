@@ -4,7 +4,7 @@
 
 What changed in each version, newest first.
 
-## Unreleased
+## 1.5.1 · 2026-11-28
 
 - Fixed: on game versions before 3.4.0, 1.5.0 reported an error and disabled itself as soon as the Appearance settings were opened or a level started, so neither the four-lane panel nor the taiko bar showed. Judgment hints used the judgment text setting and colors that only arrived in game 3.4.0; they no longer do. If the game lacks something needed to read judgments, only judgment hints are turned off and everything else works; F8 → Appearance → Falling panel explains why
 - Changed: judgment hint text and colors now come with the Mod, matching the game's defaults, in the Mod's interface language; if you changed the judgment colors or perfect text in the game, the panel still uses the defaults

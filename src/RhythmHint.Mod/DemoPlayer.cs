@@ -114,10 +114,10 @@ internal sealed class DemoPlayer
     {
         foreach (var note in frame.Passed)
         {
-            var margin = GameJudgments.From(JudgmentRules.DemoAt(note.TileIndex));
-            if (GameJudgments.Shows(margin, settings))
+            var judgment = JudgmentRules.DemoAt(note.TileIndex);
+            if (GameJudgments.Shows(judgment, settings))
             {
-                frame.Judgments.Add(note.Lanes.Keys, margin, Time.unscaledTime, GameJudgments.MinGap(frame.Keys));
+                frame.Judgments.Add(note.Lanes.Keys, judgment, Time.unscaledTime, GameJudgments.MinGap(frame.Keys));
             }
         }
     }

@@ -30,23 +30,52 @@ public class JudgmentTests
         }
     }
 
-    /// <summary>游戏各语言的判定文字（resources.assets 里的本地化表）去掉标点后的样子。</summary>
+    /// <summary>
+    /// 按名字认游戏的判定（2026-11-28）：游戏 3.4.0 之后完美分成 PerfectMinus、XPerfect、PerfectPlus，之前只有 Perfect，
+    /// 编号也跟着错位；名字对上了新旧游戏都认得对。自动、中旋、多按、死后补记的不是玩家按出来的。
+    /// </summary>
     [Theory]
-    [InlineData("太快！！", "太快")]
-    [InlineData("稍慢！", "稍慢")]
-    [InlineData("X完美！", "X完美")]
-    [InlineData("-完美！", "-完美")]
-    [InlineData("完美！+", "完美+")]
-    [InlineData("Early!!", "Early")]
-    [InlineData("EPerfect", "EPerfect")]
-    [InlineData("빠름!!", "빠름")]
-    [InlineData("¡¡Muy pronto!!", "Muy pronto")]
-    [InlineData("Parfait-tôt!", "Parfait-tôt")]
-    [InlineData("Quá Sớm!!", "Quá Sớm")]
-    [InlineData("!!", "!!")]
-    public void JudgmentTextLosesItsPunctuation(string game, string shown)
+    [InlineData("TooEarly", Judgment.TooEarly)]
+    [InlineData("VeryEarly", Judgment.VeryEarly)]
+    [InlineData("EarlyPerfect", Judgment.EarlyPerfect)]
+    [InlineData("Perfect", Judgment.Perfect)] // 3.4.0 之前的游戏
+    [InlineData("PerfectMinus", Judgment.Perfect)]
+    [InlineData("XPerfect", Judgment.Perfect)]
+    [InlineData("PerfectPlus", Judgment.Perfect)]
+    [InlineData("LatePerfect", Judgment.LatePerfect)]
+    [InlineData("VeryLate", Judgment.VeryLate)]
+    [InlineData("TooLate", Judgment.TooLate)]
+    [InlineData("FailMiss", Judgment.Miss)]
+    [InlineData("FailOverload", Judgment.Overload)]
+    public void GameJudgmentsAreRecognisedByName(string name, Judgment expected)
     {
-        Assert.Equal(shown, JudgmentRules.StripPunctuation(game));
+        Assert.Equal(expected, JudgmentRules.FromGameName(name));
+    }
+
+    [Theory]
+    [InlineData("Multipress")]
+    [InlineData("Auto")]
+    [InlineData("OverPress")]
+    [InlineData("Midspin")]
+    [InlineData("FailedFloor")]
+    [InlineData("12")] // 游戏枚举里没有名字的编号
+    public void JudgmentsThePlayerDidNotMakeAreIgnored(string name)
+    {
+        Assert.Null(JudgmentRules.FromGameName(name));
+    }
+
+    /// <summary>颜色照游戏默认配色（RDConstants.hitMarginColours）：快慢对称，完美、稍快稍慢、快慢、太快太慢、失败各不相同。</summary>
+    [Fact]
+    public void ColorsFollowTheGameDefaultsAndAreSymmetric()
+    {
+        Assert.Equal(0x60FF4Eu, JudgmentRules.Rgb(Judgment.Perfect));
+        Assert.Equal(0xFF0000u, JudgmentRules.Rgb(Judgment.TooEarly));
+        Assert.Equal(JudgmentRules.Rgb(Judgment.EarlyPerfect), JudgmentRules.Rgb(Judgment.LatePerfect));
+        Assert.Equal(JudgmentRules.Rgb(Judgment.VeryEarly), JudgmentRules.Rgb(Judgment.VeryLate));
+        Assert.Equal(JudgmentRules.Rgb(Judgment.TooEarly), JudgmentRules.Rgb(Judgment.TooLate));
+        Assert.Equal(JudgmentRules.Rgb(Judgment.Miss), JudgmentRules.Rgb(Judgment.Overload));
+        var levels = new[] { Judgment.Perfect, Judgment.EarlyPerfect, Judgment.VeryEarly, Judgment.TooEarly, Judgment.Miss };
+        Assert.Equal(levels.Length, levels.Select(JudgmentRules.Rgb).Distinct().Count());
     }
 
     [Fact]

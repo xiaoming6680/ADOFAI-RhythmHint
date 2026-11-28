@@ -32,7 +32,7 @@ internal static class LaneView
     /// <summary>
     /// 先把按键框键名要用的字形排进字体贴图（2026-11-22 用户：第一次用 6K、8K 时面板进场会卡一下）。
     /// 键名字号跟着轨道宽变：6K、8K 比 4K 小，换键数的过渡途中还会经过一串中间字号；第一次画到某个字号时字体要临时排字形、重建贴图。
-    /// 这里把三套键位在可能用到的字号都先排好，判定小字（游戏的判定文字）也一起排。屏幕大小、缩放、键位、游戏语言变了再排一次。
+    /// 这里把三套键位在可能用到的字号都先排好，判定小字也一起排。屏幕大小、缩放、键位、界面语言变了再排一次。
     /// 只能在 OnGUI 里调用（要读 GUI.skin 的字体）。
     /// </summary>
     public static void Prewarm(Settings s)
@@ -47,7 +47,7 @@ internal static class LaneView
             }
         }
 
-        var judgments = GameJudgments.AllTexts(); // 判定小字跟游戏语言走，换了语言也要再排
+        var judgments = GameJudgments.AllTexts(); // 判定小字跟界面语言走，换了语言也要再排
         var state = $"{Screen.height}/{scale}/{text}/{judgments}";
         var font = GUI.skin.label.font ? GUI.skin.label.font : GUI.skin.font;
         if (state == _warmed || !font || !font.dynamic)
@@ -129,7 +129,7 @@ internal static class LaneView
     }
 
     /// <summary>
-    /// 判定小字（2026-11-23 用户：多 K 面板上加判定提示，但不能喧宾夺主；文字用游戏的）：游戏自己的判定文字和颜色，
+    /// 判定小字（2026-11-23 用户：多 K 面板上加判定提示，但不能喧宾夺主）：文字和颜色仿照游戏默认的（<see cref="GameJudgments.Text"/>），
     /// 落在按的那条轨道（多押取几条轨道的中间）判定线上方，出来后往上飘一点、很快淡掉。字小、不加底框，
     /// 只在右下垫一层很淡的暗影，压在音符上也看得清。窄轨道上字可以比轨道宽，贴边时往里挪，不出面板。
     /// </summary>

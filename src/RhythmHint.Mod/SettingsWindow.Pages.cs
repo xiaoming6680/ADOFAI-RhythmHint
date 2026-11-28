@@ -334,13 +334,21 @@ internal sealed partial class SettingsWindow
     }
 
     /// <summary>
-    /// 判定提示（2026-11-23 用户）：判定线上方的小字，文字和颜色用游戏自己的；完美的默认不显示。
+    /// 判定提示（2026-11-23 用户）：判定线上方的小字，文字和颜色仿照游戏默认的（2026-11-28 用户）；完美的默认不显示。
     /// 同一天试过轨道染色（读谱时不用低头），用户看了让去掉。开着外观页时后面的演示出示例判定。
+    /// 旧版游戏缺判定的接口时（<see cref="GameJudgments.Available"/>）用一行说明代替开关，玩家的设置不改。
     /// </summary>
     private void JudgmentChoice(Settings s)
     {
+        if (!GameJudgments.Available)
+        {
+            _ui.Gap(8); // 抽屉上下各留 4，说明上下再各空 8，字在中间
+            _ui.Hint(Lang.T("当前游戏版本不支持判定提示，游戏更新至最新版本后方可使用。"), 8);
+            return;
+        }
+
         s.ShowJudgments = _ui.Switch("judgments", "target", Lang.T("判定提示"),
-            Lang.T("在下落面板判定线上方显示游戏的判定文字，文字与颜色和游戏一致。"), s.ShowJudgments);
+            Lang.T("在下落面板判定线上方显示判定文字，文字与颜色采用游戏的默认样式。"), s.ShowJudgments);
         if (_ui.BeginFold("perfectJudgments", s.ShowJudgments))
         {
             s.ShowPerfectJudgments = _ui.Switch("perfectJudgments", "sparkle", Lang.T("显示完美判定"), Lang.T("关闭时仅显示非完美判定。"), s.ShowPerfectJudgments);

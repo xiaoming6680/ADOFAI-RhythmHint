@@ -4,6 +4,11 @@
 
 What changed in each version, newest first.
 
+## Unreleased
+
+- Fixed: on game versions before 3.4.0, 1.5.0 reported an error and disabled itself as soon as the Appearance settings were opened or a level started, so neither the four-lane panel nor the taiko bar showed. Judgment hints used the judgment text setting and colors that only arrived in game 3.4.0; they no longer do. If the game lacks something needed to read judgments, only judgment hints are turned off and everything else works; F8 → Appearance → Falling panel explains why
+- Changed: judgment hint text and colors now come with the Mod, matching the game's defaults, in the Mod's interface language; if you changed the judgment colors or perfect text in the game, the panel still uses the defaults
+
 ## 1.5.0 · 2026-11-26
 
 - New 6K (S D F J K L) and 8K (A S D F J K L ;), experimental. By default the key count is chosen from the estimated difficulty: P tiers stay 4K, 6K from G1, 8K from U6; a custom fingering in use is shown with its own key count. Under F8 → Keys you can turn the automatic choice off and pick 4K / 6K / 8K, or change the tiers where 6K and 8K start; the keys for each key count are set there too

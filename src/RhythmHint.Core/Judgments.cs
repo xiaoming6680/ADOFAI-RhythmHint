@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace RhythmHint.Core;
 
 /// <summary>
-/// 下落面板上显示的判定种类：游戏的判定（HitMargin）里玩家按出来的那几种，Mod 按名字换过来（GameJudgments）。
+/// 下落面板上显示的判定种类：游戏的判定（HitMargin）里玩家按出来的那几种，按名字换过来（<see cref="JudgmentRules.FromGameName"/>）。
 /// 自动砖、中旋、死后补记的砖游戏也记判定，但不是玩家按的，不显示。
 /// </summary>
 public enum Judgment
@@ -57,24 +57,37 @@ public static class JudgmentRules
     public static bool Shows(Judgment judgment, bool showPerfect) => showPerfect || judgment != Judgment.Perfect;
 
     /// <summary>
-    /// 去掉游戏判定文字里的标点（2026-11-23 用户：判定名字后面不要留标点）：「太快！！」→「太快」、「¡¡Muy pronto!!」→「Muy pronto」。
-    /// 连字符和加号留着：正负完美的「-完美」「完美+」靠它们区分，法语「Parfait-tôt」的连字符是词的一部分。
-    /// 去掉后什么都不剩时原样返回。
+    /// 游戏判定（HitMargin）的名字换成面板的判定种类；自动砖、中旋、死后补记的砖、多按这些不是玩家按出来的判定，为 null。
+    /// 按名字认、不按编号（2026-11-28）：HitMargin 是游戏的枚举，编号编译时就定死，游戏 3.4.0 加了 X 完美那三项（PerfectMinus、XPerfect、PerfectPlus），
+    /// 之前的游戏只有 Perfect，后面的编号整体错位。名字在运行时从玩家的游戏里取，新旧游戏都认得对。
     /// </summary>
-    public static string StripPunctuation(string text)
+    public static Judgment? FromGameName(string name) => name switch
     {
-        var kept = new System.Text.StringBuilder(text.Length);
-        foreach (var c in text)
-        {
-            if (!char.IsPunctuation(c) || char.GetUnicodeCategory(c) == System.Globalization.UnicodeCategory.DashPunctuation)
-            {
-                kept.Append(c);
-            }
-        }
+        "TooEarly" => Judgment.TooEarly,
+        "VeryEarly" => Judgment.VeryEarly,
+        "EarlyPerfect" => Judgment.EarlyPerfect,
+        "Perfect" or "PerfectMinus" or "XPerfect" or "PerfectPlus" => Judgment.Perfect,
+        "LatePerfect" => Judgment.LatePerfect,
+        "VeryLate" => Judgment.VeryLate,
+        "TooLate" => Judgment.TooLate,
+        "FailMiss" => Judgment.Miss,
+        "FailOverload" => Judgment.Overload,
+        _ => null,
+    };
 
-        var result = kept.ToString().Trim();
-        return result.Length > 0 ? result : text;
-    }
+    /// <summary>
+    /// 判定文字的颜色（0xRRGGBB），仿照游戏默认配色（2026-11-28 用户：不用游戏自己的颜色，仿照原版做）。
+    /// 取自开发时游戏（3.4.0）RDConstants.hitMarginColours 的值：太快太慢红、快慢橙、稍快稍慢黄绿、完美绿、漏按和过载紫。
+    /// 玩家在游戏里改了判定配色时这里不跟。
+    /// </summary>
+    public static uint Rgb(Judgment judgment) => judgment switch
+    {
+        Judgment.TooEarly or Judgment.TooLate => 0xFF0000,
+        Judgment.VeryEarly or Judgment.VeryLate => 0xFF6F4E,
+        Judgment.EarlyPerfect or Judgment.LatePerfect => 0xA0FF4E,
+        Judgment.Perfect => 0x60FF4E,
+        _ => 0xD958FF,
+    };
 
     /// <summary>音符时间离现在够近，它那几块砖上的判定是这一次按出来的。</summary>
     public static bool IsFresh(double noteTime, double now) => Math.Abs(noteTime - now) <= FreshWindow;
@@ -104,7 +117,7 @@ public static class JudgmentRules
 /// 下落面板上正在显示的判定小字。每个落在一个位置（轨道中心，按轨道算：0.5 是第一条正中，多押取几条轨道的平均），
 /// 显示 <see cref="Life"/> 秒后消失。新的一个出来时，离它不到 minGap 条轨道的旧字直接换掉：快速连打同一条轨道时字不叠在一起。
 /// </summary>
-/// <typeparam name="T">判定本身（Mod 里是游戏的 HitMargin，画的时候取游戏的文字和颜色）。</typeparam>
+/// <typeparam name="T">判定本身（Mod 里是 <see cref="Judgment"/>）。</typeparam>
 public sealed class JudgmentPops<T>
 {
     /// <summary>一个字显示多久（秒）。</summary>

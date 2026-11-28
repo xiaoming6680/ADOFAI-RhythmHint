@@ -40,7 +40,7 @@ internal sealed class OverlayFrame
     public readonly List<PlannedNote> Passed = new();
 
     /// <summary>下落面板判定线上方的判定小字（关卡里是游戏记下的判定，演示里是编出来的示例），时钟是 Time.unscaledTime。</summary>
-    public readonly JudgmentPops<HitMargin> Judgments = new();
+    public readonly JudgmentPops<Judgment> Judgments = new();
 
     /// <summary>按几键显示（4、6、8）：<see cref="Load"/> 时定，换关、换设置后跟着变。</summary>
     public int Keys { get; private set; } = 4;
